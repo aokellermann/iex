@@ -23,6 +23,11 @@ sudo make install
 ```
 Substitute `/usr` with your desired install location.
 
+### Contributing
+See [contributing guidelines](.github/CONTRIBUTING.md).
+
+### Projects
+
 ##### API Goals
 * Support calls to all [stock price](https://iexcloud.io/docs/api/#stock-prices) endpoints.
 * Support calls to all [stock fundamental](https://iexcloud.io/docs/api/#stock-fundamentals) endpoints.
