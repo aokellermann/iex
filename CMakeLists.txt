@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 project(iex
         VERSION 0.0.1
-        LANGUAGES CXX)
+        LANGUAGES CXX
+        )
 message(STATUS "${PROJECT_NAME} version: ${PROJECT_VERSION}")
 
 option(IEX_BUILD_TESTING "Enable C++ unit testing." OFF)
