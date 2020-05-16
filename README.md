@@ -12,7 +12,7 @@ iex is a WIP C++17 library for querying [IEX Cloud's](https://iexcloud.io/) fina
   * Mutual Fund Symbols
   * Cryptocurrency Symbols
 * Provide data caching:
-  * Smart querying (don't make API call if relevant data is already cached)
+  * Smart querying (will not make API call if relevant data is already cached)
   * Cache management
   * Cache-only querying
 
