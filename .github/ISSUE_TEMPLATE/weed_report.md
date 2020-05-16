@@ -4,7 +4,6 @@ about: Report something that is not working
 title: ''
 labels: weed
 assignees: ''
-
 ---
 
 ### The Problem
