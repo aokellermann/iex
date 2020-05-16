@@ -19,3 +19,5 @@ iex is a WIP C++17 library for querying [IEX Cloud](https://iexcloud.io/), a fin
 ##### Intended Usage
 * Public header `iex.h`.
 * Link with `iex::iex` using CMake.
+
+[Data provided by IEX Cloud](https://iexcloud.io)
