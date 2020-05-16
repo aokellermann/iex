@@ -1,7 +1,7 @@
 # iex
 
 ### Description
-iex is a WIP C++17 library for querying [IEX Cloud's](https://iexcloud.io/) financial data REST API.
+iex is a WIP C++17 library for querying [IEX Cloud](https://iexcloud.io/), a financial data REST API.
 
 ##### API Goals
 * Support calls to all [stock price](https://iexcloud.io/docs/api/#stock-prices) endpoints.
