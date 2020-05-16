@@ -1,6 +1,6 @@
 set(_link_libraries iex ${GTEST_LIBRARIES})
 
-add_executable(init_test unit_test.cc)
-target_link_libraries(init_test ${_link_libraries})
+add_executable(unit_test unit_test.cc)
+target_link_libraries(unit_test ${_link_libraries})
 
-gtest_discover_tests(init_test)
+gtest_discover_tests(unit_test)

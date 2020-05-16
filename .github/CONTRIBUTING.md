@@ -11,3 +11,22 @@ When in doubt, follow conventions in preexisting code.
 You code's conformity to this repo's style can be checked with `style.sh`. Any nonconformities will be printed to output. Dependencies for this script are:
 * [cpplint](https://raw.githubusercontent.com/google/styleguide/gh-pages/cpplint/cpplint.py)
 * clang-format 10.0.0
+
+### Building
+Ensure all dependencies listed [here](../README.md#Dependencies) are installed.
+
+The project's `CMakeLists.txt` supports the following options:
+* `IEX_ENABLE_ALLWARNINGS`: Turn on GCC/Clang compatible compiler warnings. Note: warnings will cause build to fail due to addition of `Werror`.
+* `IEX_BUILD_TESTING`: Build unit test target in addition to `iex`.
+
+To perform a weed whack build, run:
+```bash
+mkdir build && cd build
+cmake -DCMAKE_BUILD_TYPE=Debug -DIEX_ENABLE_ALLWARNINGS:BOOL=ON -DIEX_BUILD_TESTING:BOOL=ON ..
+cd ..
+cmake --build build/
+```
+After, you can run unit tests:
+```bash
+././build/iex/test/unit_test
+```
