@@ -1,0 +1,12 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+#### Required dependencies  ####
+find_dependency(CURL REQUIRED)
+find_dependency(nlohmann_json 3.2.0 REQUIRED)
+
+get_filename_component(IEX_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+if (NOT TARGET iex)
+include("${IEX_CMAKE_DIR}/iexTargets.cmake")
+endif ()
