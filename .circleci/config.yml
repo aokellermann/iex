@@ -16,7 +16,6 @@ jobs:
             mkdir build
             cd build
             cmake -DCMAKE_BUILD_TYPE=Debug -DIEX_ENABLE_ALLWARNINGS:BOOL=ON -DIEX_BUILD_TESTING:BOOL=ON ..
-            cmake --build .
       - run:
           name: Compile
           command: cmake --build build/
