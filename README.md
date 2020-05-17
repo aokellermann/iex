@@ -5,6 +5,14 @@ iex is a WIP C++17 library for querying [IEX Cloud](https://iexcloud.io/), a fin
 
 ### Install
 
+#### Arch Linux Package
+Arch Linux users may install with the included `PKGBUILD`:
+```bash
+mkdir build && cd build
+wget https://raw.githubusercontent.com/aokellermann/iex/master/PKGBUILD
+makepkg -si
+```
+
 #### Manual Build
 
 ##### Dependencies
