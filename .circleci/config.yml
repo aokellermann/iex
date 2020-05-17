@@ -1,0 +1,24 @@
+version: 2
+
+jobs:
+  build:
+    docker:
+      - image: aokellermann/iex:ci
+    steps:
+      - checkout
+      - run:
+          name: Style
+          command: ./style.sh
+      - run:
+          name: Configure
+          command: |
+            rm -rf build
+            mkdir build
+            cd build
+            cmake -DCMAKE_BUILD_TYPE=Debug -DIEX_ENABLE_ALLWARNINGS:BOOL=ON -DIEX_BUILD_TESTING:BOOL=ON ..
+      - run:
+          name: Compile
+          command: cmake --build build/
+      - run:
+          name: Unit Test
+          command: ././build/iex/test/unit_test
