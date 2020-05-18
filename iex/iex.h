@@ -17,20 +17,71 @@
 
 #pragma once
 
+#include <initializer_list>
 #include <string>
+#include <utility>
 
 namespace iex
 {
+// region named pair
+
+template <typename T>
+using named_pair = std::pair<std::string, T>;
+
+// endregion named pair
+
+// region error code
+
 /**
  * This class represents an error code.
  */
-class ec : std::string
+class ec : public std::string
 {
  public:
+  // region constructors
+
+  ec() = default;
+
+  ec(const ec& ec) = default;
+
+  ec(ec&& ec) = default;
+
+  explicit ec(const char* str) : std::string(str) {}
+
+  explicit ec(const std::string& str) : std::string(str) {}
+
+  ec(const std::string& message, const ec& ec) : std::string(message + ": [" + ec + ']') {}
+
+  explicit ec(const named_pair<ec>& named_ec) : ec(named_ec.first, named_ec.second) {}
+
+  ec(const std::string& message, const std::initializer_list<named_pair<ec>>& named_ec_list) : std::string(message)
+  {
+    if (named_ec_list.size() != 0)
+    {
+      append(": [");
+
+      for (const auto& named_ec : named_ec_list)
+      {
+        append(ec(named_ec) + ", ");
+      }
+      pop_back();
+      pop_back();
+      append("]");
+    }
+  }
+
+  // endregion constructors
+
+  // region Success/Failure
+
   [[nodiscard]] inline bool Success() const noexcept { return empty(); }
 
   [[nodiscard]] inline bool Failure() const noexcept { return !Success(); }
+
+  // endregion Success/Failure
 };
+
+// endregion error code
 
 ec Init();
 
