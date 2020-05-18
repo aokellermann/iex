@@ -50,7 +50,7 @@ class ec : public std::string
 
   explicit ec(const std::string& str) : std::string(str) {}
 
-  ec(const std::string& message, const ec& ec) : std::string(message + ": [" + ec + ']') {}
+  ec(const std::string& message, const ec& inner_ec) : std::string(message + ": [" + inner_ec + ']') {}
 
   explicit ec(const named_pair<ec>& named_ec) : ec(named_ec.first, named_ec.second) {}
 
