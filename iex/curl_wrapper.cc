@@ -19,10 +19,17 @@
 
 #include <curl/curl.h>
 
+#include <memory>
+#include <mutex>
+
 namespace iex::curl
 {
 namespace
 {
+namespace detail
+{
+// region Initialization
+
 /**
  * This class should only be instantiated once as static.
  */
@@ -46,6 +53,18 @@ class CurlInitImpl
   /// Stores the `ErrorCode` returned by `curl_global_init`.
   ErrorCode curl_init_ec_;
 };
+
+std::unique_ptr<CurlInitImpl> curl_init_impl;
+std::once_flag init_impl;
+
+// endregion Initialization
+}  // namespace detail
+
+const ErrorCode& InitIfNeeded()
+{
+  std::call_once(detail::init_impl, [] { detail::curl_init_impl = std::make_unique<detail::CurlInitImpl>(); });
+  return detail::curl_init_impl->GetErrorCode();
+}
 
 }  // namespace
 
