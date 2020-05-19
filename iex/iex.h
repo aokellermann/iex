@@ -54,7 +54,8 @@ class ErrorCode : public std::string
 
   explicit ErrorCode(const NamedPair<ErrorCode>& named_ec) : ErrorCode(named_ec.first, named_ec.second) {}
 
-  ErrorCode(const std::string& message, const std::initializer_list<NamedPair<ErrorCode>>& named_ec_list) : std::string(message)
+  ErrorCode(const std::string& message, const std::initializer_list<NamedPair<ErrorCode>>& named_ec_list)
+      : std::string(message)
   {
     if (named_ec_list.size() != 0)
     {
