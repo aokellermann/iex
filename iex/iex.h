@@ -80,6 +80,9 @@ class ErrorCode : public std::string
   // endregion Success/Failure
 };
 
+template <typename T>
+using ValueWithErrorCode = std::pair<T, ErrorCode>;
+
 // endregion error code
 
 ErrorCode Init();

@@ -28,6 +28,28 @@ namespace
 {
 namespace detail
 {
+// region Handle Wrappers
+
+struct EasyHandle
+{
+  EasyHandle() : handle_(curl_easy_init()) {}
+
+  ~EasyHandle() { curl_easy_cleanup(handle_); }
+
+  CURL* handle_;
+};
+
+struct MultiHandle
+{
+  MultiHandle() : handle_(curl_multi_init()) {}
+
+  ~MultiHandle() { curl_multi_cleanup(handle_); }
+
+  CURLM* handle_;
+};
+
+// endregion Handle Wrappers
+
 // region Initialization
 
 /**
@@ -55,17 +77,85 @@ class CurlInitImpl
 };
 
 std::unique_ptr<CurlInitImpl> curl_init_impl;
-std::once_flag init_impl;
 
 // endregion Initialization
-}  // namespace detail
+
+// region Curl Escape
+
+std::unique_ptr<EasyHandle> curl_escape_handle;
+
+// endregionCurl Escape
+
+// region Interface
+
+std::once_flag init_once_flag;
 
 const ErrorCode& InitIfNeeded()
 {
-  std::call_once(detail::init_impl, [] { detail::curl_init_impl = std::make_unique<detail::CurlInitImpl>(); });
-  return detail::curl_init_impl->GetErrorCode();
+  std::call_once(init_once_flag, [] {
+    curl_init_impl = std::make_unique<CurlInitImpl>();
+    curl_escape_handle = std::make_unique<EasyHandle>();
+  });
+  return curl_init_impl->GetErrorCode();
 }
 
+// endregion Interface
+}  // namespace detail
+
+// region Interface
+
+const ErrorCode& InitIfNeeded() { return detail::InitIfNeeded(); }
+
+ValueWithErrorCode<std::string> GetEscapedUrlStringFromPlaintextString(const std::string& plaintext_url_string)
+{
+  // Curl must be initialized before using escape function!
+  const ErrorCode& init_ec = InitIfNeeded();
+  if (init_ec.Failure())
+  {
+    return {std::string(), init_ec};
+  }
+
+  char* escaped_c_string =
+      curl_easy_escape(detail::curl_escape_handle->handle_, plaintext_url_string.c_str(), plaintext_url_string.size());
+  std::string escaped_string(escaped_c_string);
+  curl_free(escaped_c_string);
+  if (escaped_string.empty())
+  {
+    return {std::string(), ErrorCode("curl_easy_escape() failed")};
+  }
+
+  return {escaped_string, ErrorCode()};
+}
+
+// endregion Interface
 }  // namespace
 
+// region Url
+
+Url::Url(const char* base_url)
+{
+  const auto val_ec_pair = GetEscapedUrlStringFromPlaintextString(base_url);
+  impl_ = val_ec_pair.first;
+  ec_ = val_ec_pair.second;
+}
+
+template <class InputIt>
+Url::Url(const char* base_url, InputIt params_begin, InputIt params_end)
+{
+  std::string plaintext_url(base_url);
+  if (params_begin != params_end)
+  {
+    plaintext_url.append("?" + params_begin->first + '=' + params_begin->second);
+    while (++params_begin != params_end)
+    {
+      plaintext_url.append("&" + params_begin->first + '=' + params_begin->second);
+    }
+  }
+
+  const auto val_ec_pair = GetEscapedUrlStringFromPlaintextString(plaintext_url);
+  impl_ = val_ec_pair.first;
+  ec_ = val_ec_pair.second;
+}
+
+// endregion Url
 }  // namespace iex::curl

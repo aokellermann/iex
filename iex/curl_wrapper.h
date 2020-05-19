@@ -28,27 +28,20 @@ namespace iex::curl
 class Url
 {
  public:
-  explicit Url(const char* base_url) : impl_(base_url) {}
+  explicit Url(const char* base_url);
 
   template <class InputIt>
-  Url(const char* base_url, InputIt params_begin, InputIt params_end) : Url(base_url)
-  {
-    if (params_begin != params_end)
-    {
-      impl_.append("?" + params_begin->first + '=' + params_begin->second);
-      while (++params_begin != params_end)
-      {
-        impl_.append("&" + params_begin->first + '=' + params_begin->second);
-      }
-    }
-  }
+  Url(const char* base_url, InputIt params_begin, InputIt params_end);
 
   [[nodiscard]] const std::string& GetAsString() const noexcept { return impl_; }
+
+  [[nodiscard]] const ErrorCode& Valid() const noexcept { return ec_; }
 
   bool operator==(const Url& other) const { return impl_ == other.impl_; }
 
  private:
   std::string impl_;
+  ErrorCode ec_;
 };
 
 struct UrlHasher

@@ -23,6 +23,9 @@
 #include <gtest/gtest.h>  // NOLINT Why does linter think this is a C library?
 #include "iex/iex.h"
 #include "iex/singleton.h"
+#include "iex/curl_wrapper.h"
+
+namespace curl = iex::curl;
 
 TEST(iex, init_test)
 {
@@ -36,7 +39,7 @@ TEST(iex, init_test)
  * Then, puts them into a set, using their id as a hash.
  * If singleton works properly, the set will be of size 1.
  */
-TEST(iex, singleton_unique)
+TEST(singleton, singleton_unique)
 {
   struct SingletonImpl
   {
@@ -59,7 +62,7 @@ TEST(iex, singleton_unique)
     set.insert(instance);
   };
 
-  const std::size_t num_threads = 1000;
+  const std::size_t num_threads = 10;
   std::vector<std::thread> threads(num_threads);
   for (int i = 0; i < num_threads; ++i)
   {
@@ -72,6 +75,18 @@ TEST(iex, singleton_unique)
   }
 
   EXPECT_EQ(set.size(), 1);
+}
+
+TEST(url, correct_encoding)
+{
+  curl::Url url("https://google.com/path?foo=1&bar=2&plus=+");
+  EXPECT_EQ("https%3A%2F%2Fgoogle.com%2Fpath%3Ffoo%3D1%26bar%3D2%26plus%3D%2B", url.GetAsString());
+}
+
+TEST(url, invalid_url)
+{
+  curl::Url url("");
+  EXPECT_TRUE(url.Valid().Failure());
 }
 
 int main(int argc, char** argv)
