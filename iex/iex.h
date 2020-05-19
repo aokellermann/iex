@@ -44,8 +44,6 @@ class ErrorCode : public std::string
 
   ErrorCode(const ErrorCode& ec) = default;
 
-  ErrorCode(ErrorCode&& ec) = default;
-
   explicit ErrorCode(const char* str) : std::string(str) {}
 
   explicit ErrorCode(const std::string& str) : std::string(str) {}
