@@ -45,8 +45,15 @@ class Url
 
   [[nodiscard]] const std::string& GetAsString() const noexcept { return impl_; }
 
+  bool operator==(const Url& other) const { return impl_ == other.impl_; }
+
  private:
   std::string impl_;
+};
+
+struct UrlHasher
+{
+  std::size_t operator()(const Url& s) const { return std::hash<std::string>()(s.GetAsString()); }
 };
 
 // endregion
