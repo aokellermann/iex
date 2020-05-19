@@ -26,7 +26,7 @@ namespace iex
 // region named pair
 
 template <typename T>
-using named_pair = std::pair<std::string, T>;
+using NamedPair = std::pair<std::string, T>;
 
 // endregion named pair
 
@@ -35,26 +35,26 @@ using named_pair = std::pair<std::string, T>;
 /**
  * This class represents an error code.
  */
-class ec : public std::string
+class ErrorCode : public std::string
 {
  public:
   // region constructors
 
-  ec() = default;
+  ErrorCode() = default;
 
-  ec(const ec& ec) = default;
+  ErrorCode(const ErrorCode& ec) = default;
 
-  ec(ec&& ec) = default;
+  ErrorCode(ErrorCode&& ec) = default;
 
-  explicit ec(const char* str) : std::string(str) {}
+  explicit ErrorCode(const char* str) : std::string(str) {}
 
-  explicit ec(const std::string& str) : std::string(str) {}
+  explicit ErrorCode(const std::string& str) : std::string(str) {}
 
-  ec(const std::string& message, const ec& inner_ec) : std::string(message + ": [" + inner_ec + ']') {}
+  ErrorCode(const std::string& message, const ErrorCode& inner_ec) : std::string(message + ": [" + inner_ec + ']') {}
 
-  explicit ec(const named_pair<ec>& named_ec) : ec(named_ec.first, named_ec.second) {}
+  explicit ErrorCode(const NamedPair<ErrorCode>& named_ec) : ErrorCode(named_ec.first, named_ec.second) {}
 
-  ec(const std::string& message, const std::initializer_list<named_pair<ec>>& named_ec_list) : std::string(message)
+  ErrorCode(const std::string& message, const std::initializer_list<NamedPair<ErrorCode>>& named_ec_list) : std::string(message)
   {
     if (named_ec_list.size() != 0)
     {
@@ -62,7 +62,7 @@ class ec : public std::string
 
       for (const auto& named_ec : named_ec_list)
       {
-        append(ec(named_ec) + ", ");
+        append(ErrorCode(named_ec) + ", ");
       }
       pop_back();
       pop_back();
@@ -83,6 +83,6 @@ class ec : public std::string
 
 // endregion error code
 
-ec Init();
+ErrorCode Init();
 
 }  // namespace iex
