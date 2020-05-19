@@ -17,21 +17,73 @@
 
 #pragma once
 
+#include <initializer_list>
 #include <string>
+#include <utility>
 
 namespace iex
 {
+// region named pair
+
+template <typename T>
+using NamedPair = std::pair<std::string, T>;
+
+// endregion named pair
+
+// region error code
+
 /**
  * This class represents an error code.
  */
-class ec : std::string
+class ErrorCode : public std::string
 {
  public:
+  // region constructors
+
+  ErrorCode() = default;
+
+  ErrorCode(const ErrorCode& ec) = default;
+
+  ErrorCode(ErrorCode&& ec) = default;
+
+  explicit ErrorCode(const char* str) : std::string(str) {}
+
+  explicit ErrorCode(const std::string& str) : std::string(str) {}
+
+  ErrorCode(const std::string& message, const ErrorCode& inner_ec) : std::string(message + ": [" + inner_ec + ']') {}
+
+  explicit ErrorCode(const NamedPair<ErrorCode>& named_ec) : ErrorCode(named_ec.first, named_ec.second) {}
+
+  ErrorCode(const std::string& message, const std::initializer_list<NamedPair<ErrorCode>>& named_ec_list)
+      : std::string(message)
+  {
+    if (named_ec_list.size() != 0)
+    {
+      append(": [");
+
+      for (const auto& named_ec : named_ec_list)
+      {
+        append(ErrorCode(named_ec) + ", ");
+      }
+      pop_back();
+      pop_back();
+      append("]");
+    }
+  }
+
+  // endregion constructors
+
+  // region Success/Failure
+
   [[nodiscard]] inline bool Success() const noexcept { return empty(); }
 
   [[nodiscard]] inline bool Failure() const noexcept { return !Success(); }
+
+  // endregion Success/Failure
 };
 
-ec Init();
+// endregion error code
+
+ErrorCode Init();
 
 }  // namespace iex

@@ -19,5 +19,5 @@
 
 namespace iex
 {
-ec Init() { return ec(); }
+ErrorCode Init() { return ErrorCode(); }
 }  // namespace iex
