@@ -4,7 +4,7 @@
 iex is a WIP C++17 library for querying [IEX Cloud](https://iexcloud.io/), a financial data REST API.
 
 ### Install
-
+Please note that this library is only designed to be built on Linux, and has only been tested with GCC 10.1 and Clang 10.0. 
 #### Arch Linux Package
 Arch Linux users may install with the included `PKGBUILD`:
 ```bash
