@@ -5,15 +5,15 @@ pkgname="${_pkgname}-git"
 pkgver=0.0.1
 pkgrel=1
 pkgdesc="C++17 library for querying IEX Cloud API."
-arch=('x86_64')
+arch=("x86_64")
 url="https://github.com/aokellermann/${_pkgname}"
-license=('MIT')
-depends=('curl' 'nlohmann-json')
-makedepends=("cmake")
+license=("MIT")
+depends=("curl" "nlohmann-json")
+makedepends=("cmake" "git")
 provides=("${_pkgname}")
 conflicts=("${_pkgname}")
 source=("git://github.com/aokellermann/${_pkgname}")
-md5sums=('SKIP')
+md5sums=("SKIP")
 
 prepare() {
   mkdir -p "${_pkgname}/build"
