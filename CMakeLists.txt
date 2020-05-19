@@ -5,12 +5,13 @@ project(iex
         )
 message(STATUS "${PROJECT_NAME} version: ${PROJECT_VERSION}")
 
-option(IEX_BUILD_TESTING "Enable C++ unit testing." OFF)
-include(GNUInstallDirs) # Define CMAKE_INSTALL_xxx: LIBDIR, INCLUDEDIR
-set(iex_export_file "${PROJECT_BINARY_DIR}/iexTargets.cmake")
+# Options related to weed whacking and testing.
+option(IEX_ENABLE_ALLWARNINGS "Add GCC/Clang compatible compile options." OFF)
+option(IEX_BUILD_TESTING "Enable unit testing." OFF)
 
-set(default_build_type "Release")
+# Set configuration: Either Debug, Release (default), MinSizeRel, or RelWithDebInfo.
 if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(default_build_type "Release")
     message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
     set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE
             STRING "Choose the type of build." FORCE)
@@ -19,41 +20,43 @@ if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
             STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif ()
 
+# Set C++17 unless specified otherwise.
 if (NOT CMAKE_CXX_STANDARD)
     set(CMAKE_CXX_STANDARD 17)
     message(STATUS "${PROJECT_NAME} using CMAKE_CXX_STANDARD: ${CMAKE_CXX_STANDARD}")
 endif ()
 
-# Set extra compile options
-set(_iex_extra_compile_options_docstring "Add extra compile options to the CXX targets")
-if (MSVC)
-    set(IEX_EXTRA_COMPILE_OPTIONS /EHsc CACHE STRING ${_iex_extra_compile_options_docstring})
-else ()
-    option(IEX_ENABLE_ALLWARNINGS "Add compile options to the C++ targets. The warnings are set in
-    IEX_EXTRA_COMPILE_OPTIONS" OFF)
-    if (IEX_ENABLE_ALLWARNINGS)
+# Set compiler warning flags if option is on, and using GCC/Clang.
+if (IEX_ENABLE_ALLWARNINGS)
+    if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
         set(IEX_EXTRA_COMPILE_OPTIONS
                 -Wall -Wextra -Werror -pedantic -Wcast-align -Wcast-qual
                 -Wctor-dtor-privacy -Wdisabled-optimization -Wformat=2
                 -Winit-self -Wmissing-include-dirs -Wold-style-cast
                 -Woverloaded-virtual -Wredundant-decls -Wshadow
                 -Wsign-promo -Wswitch-default -Wundef -Wno-unused
-                CACHE STRING ${_iex_extra_compile_options_docstring})
+                CACHE STRING "Add extra compile options to the CXX targets")
     endif ()
 endif ()
-message(STATUS "IEX_BUILD_TESTING: ${IEX_BUILD_TESTING}")
-message(STATUS "IEX_EXTRA_COMPILE_OPTIONS: ${IEX_EXTRA_COMPILE_OPTIONS}")
 
+message(STATUS "IEX_EXTRA_COMPILE_OPTIONS: ${IEX_EXTRA_COMPILE_OPTIONS}")
+message(STATUS "IEX_BUILD_TESTING: ${IEX_BUILD_TESTING}")
+
+# Set library headers and sources.
 set(iex_headers
         iex.h
         )
 set(iex_sources
         iex.cc
         )
+
+# Specify source directory.
 list(TRANSFORM iex_headers PREPEND "iex/")
 list(TRANSFORM iex_sources PREPEND "iex/")
 
+# Create shared library.
 add_library(iex SHARED ${iex_sources})
+include(GNUInstallDirs) # Define CMAKE_INSTALL_xxx: LIBDIR, INCLUDEDIR
 target_include_directories(iex PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
@@ -62,12 +65,12 @@ target_compile_options(iex PRIVATE ${IEX_EXTRA_COMPILE_OPTIONS})
 
 set(IEX_LIBRARIES iex)
 
+# Find and link dependencies.
 find_package(CURL REQUIRED)
 find_package(nlohmann_json 3.2.0 REQUIRED)
+target_link_libraries(iex CURL::libcurl nlohmann_json::nlohmann_json)
 
-target_include_directories(iex PUBLIC ${CURL_INCLUDE_DIR})
-target_link_libraries(iex ${CURL_LIBRARIES} nlohmann_json::nlohmann_json)
-
+# Install shared object.
 install(TARGETS ${IEX_LIBRARIES}
         EXPORT iexTargets
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
@@ -75,17 +78,20 @@ install(TARGETS ${IEX_LIBRARIES}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT development
         )
 
+# Install public header(s).
 install(FILES ${iex_headers}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iex
         COMPONENT development
         )
 
-# export to the build tree
+# Export to the build tree.
+set(iex_export_file "${PROJECT_BINARY_DIR}/iexTargets.cmake")
 export(TARGETS ${IEX_LIBRARIES}
         NAMESPACE iex::
         APPEND FILE ${iex_export_file}
         )
 
+# Build GTest if unit testing enabled.
 if (IEX_BUILD_TESTING)
     enable_testing()
     set(INSTALL_GTEST OFF)
@@ -102,18 +108,16 @@ if (IEX_BUILD_TESTING)
             GIT_TAG v1.8.x
     )
 
-    set(CMAKE_POLICY_DEFAULT_CMP0048 NEW) # google test raises warning about it
     FetchContent_GetProperties(googletest)
     if (NOT googletest_POPULATED)
         FetchContent_Populate(googletest)
         add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR})
     endif ()
-    #############################################################################
 
     add_subdirectory(iex/test)
 endif ()
 
-# INSTALL
+# Install
 set(install_cmake_dir "${CMAKE_INSTALL_LIBDIR}/cmake/iex")
 
 install(EXPORT iexTargets
