@@ -15,17 +15,15 @@
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#include <gtest/gtest.h>
+
 #include <mutex>
 #include <thread>
 #include <unordered_set>
 #include <vector>
 
-#include <gtest/gtest.h>  // NOLINT Why does linter think this is a C library?
 #include "iex/iex.h"
 #include "iex/singleton.h"
-#include "iex/curl_wrapper.h"
-
-namespace curl = iex::curl;
 
 TEST(iex, init_test)
 {
@@ -75,18 +73,6 @@ TEST(singleton, singleton_unique)
   }
 
   EXPECT_EQ(set.size(), 1);
-}
-
-TEST(url, correct_encoding)
-{
-  curl::Url url("https://google.com/path?foo=1&bar=2&plus=+");
-  EXPECT_EQ("https%3A%2F%2Fgoogle.com%2Fpath%3Ffoo%3D1%26bar%3D2%26plus%3D%2B", url.GetAsString());
-}
-
-TEST(url, invalid_url)
-{
-  curl::Url url("");
-  EXPECT_TRUE(url.Valid().Failure());
 }
 
 int main(int argc, char** argv)

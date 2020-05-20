@@ -132,29 +132,27 @@ ValueWithErrorCode<std::string> GetEscapedUrlStringFromPlaintextString(const std
 
 // region Url
 
-Url::Url(const char* base_url)
+ValueWithErrorCode<std::string> Url::UrlEncode(const std::string& plaintext_str)
 {
-  const auto val_ec_pair = GetEscapedUrlStringFromPlaintextString(base_url);
-  impl_ = val_ec_pair.first;
-  ec_ = val_ec_pair.second;
+  return GetEscapedUrlStringFromPlaintextString(plaintext_str);
 }
 
-template <class InputIt>
-Url::Url(const char* base_url, InputIt params_begin, InputIt params_end)
+void Url::AppendParam(const std::string& name, const std::string& raw_value, bool first)
 {
-  std::string plaintext_url(base_url);
-  if (params_begin != params_end)
+  if (name.empty() || raw_value.empty())
   {
-    plaintext_url.append("?" + params_begin->first + '=' + params_begin->second);
-    while (++params_begin != params_end)
-    {
-      plaintext_url.append("&" + params_begin->first + '=' + params_begin->second);
-    }
+    ec_ = ErrorCode(name.empty() ? "name is empty" : "value is empty");
+    return;
   }
 
-  const auto val_ec_pair = GetEscapedUrlStringFromPlaintextString(plaintext_url);
-  impl_ = val_ec_pair.first;
-  ec_ = val_ec_pair.second;
+  const auto pair = UrlEncode(raw_value);
+  if (pair.second.Failure())
+  {
+    ec_ = pair.second;
+    return;
+  }
+
+  impl_ += (first ? "?" : "&") + name + "=" + pair.first;
 }
 
 // endregion Url

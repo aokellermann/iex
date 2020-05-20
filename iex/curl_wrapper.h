@@ -28,18 +28,41 @@ namespace iex::curl
 class Url
 {
  public:
-  explicit Url(const char* base_url);
+  Url() = delete;
+
+  explicit Url(const char* base_url) : impl_(base_url), ec_(impl_.empty() ? "Empty URL" : "") {}
 
   template <class InputIt>
-  Url(const char* base_url, InputIt params_begin, InputIt params_end);
+  Url(const char* base_url, InputIt params_begin, InputIt params_end) : Url(base_url)
+  {
+    if (ec_.Failure())
+    {
+      impl_.clear();
+      return;
+    }
+
+    for (InputIt head = params_begin; head != params_end; ++head)
+    {
+      AppendParam(head->first, head->second, head == params_begin);
+      if (ec_.Failure())
+      {
+        impl_.clear();
+        return;
+      }
+    }
+  }
 
   [[nodiscard]] const std::string& GetAsString() const noexcept { return impl_; }
 
-  [[nodiscard]] const ErrorCode& Valid() const noexcept { return ec_; }
+  [[nodiscard]] const ErrorCode& Validity() const noexcept { return ec_; }
 
   bool operator==(const Url& other) const { return impl_ == other.impl_; }
 
  private:
+  static ValueWithErrorCode<std::string> UrlEncode(const std::string& plaintext_str);
+
+  void AppendParam(const std::string& name, const std::string& raw_value, bool first);
+
   std::string impl_;
   ErrorCode ec_;
 };
