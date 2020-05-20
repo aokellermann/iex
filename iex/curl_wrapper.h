@@ -17,7 +17,9 @@
 
 #pragma once
 
+#include <nlohmann/json.hpp>
 #include <string>
+#include <unordered_map>
 
 #include "iex/iex.h"
 
@@ -72,5 +74,27 @@ struct UrlHasher
   std::size_t operator()(const Url& s) const { return std::hash<std::string>()(s.GetAsString()); }
 };
 
+struct UrlEquality
+{
+  size_t operator()(const Url& a, const Url& b) const noexcept { return a.GetAsString() == b.GetAsString(); }
+};
+
 // endregion
+
+// region Interface
+
+using Json = nlohmann::json;
+
+template <class InputIt>
+ValueWithErrorCode<std::unordered_map<Url, ValueWithErrorCode<Json>, UrlHasher, UrlEquality>> Get(
+    InputIt urls_begin, InputIt urls_end, int max_connections = 0);
+
+ValueWithErrorCode<Json> Get(const Url& url, int max_connections = 0)
+{
+  const auto url_list = {url};
+  auto data_map = Get(url_list.begin(), url_list.end(), max_connections);
+  return {data_map.first[url].first, data_map.second};
+}
+
+// endregion Interface
 }  // namespace iex::curl

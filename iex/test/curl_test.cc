@@ -28,7 +28,10 @@ const std::initializer_list<std::pair<const char*, const char*>> empty_params = 
 const std::initializer_list<std::pair<const char*, const char*>> invalid_name = {{"foo1", "bar1"}, {"", "bar2"}};
 const std::initializer_list<std::pair<const char*, const char*>> invalid_value = {{"foo1", "bar1"}, {"foo2", ""}};
 const std::initializer_list<std::pair<const char*, const char*>> valid_params = {{"foo1", "bar1"}, {"foo2", "bar2"}};
+const std::initializer_list<std::pair<const char*, const char*>> valid_params_2 = {{"foo3", "bar3"}, {"foo4", "bar4"}};
 const std::initializer_list<std::pair<const char*, const char*>> encode_params = {{"foo1", "bar1"}, {"foo2", "bar+"}};
+
+const char* postman_echo_get_base = "https://postman-echo.com/get";
 
 TEST(Url, Validity)
 {
@@ -52,4 +55,49 @@ TEST(Url, EqualityWithoutEncoding)
   EXPECT_EQ(curl::Url("base", empty_params.begin(), empty_params.end()).GetAsString(), "base");
   EXPECT_EQ(curl::Url("base", valid_params.begin(), valid_params.end()).GetAsString(), "base?foo1=bar1&foo2=bar2");
   EXPECT_EQ(curl::Url("base", encode_params.begin(), encode_params.end()).GetAsString(), "base?foo1=bar1&foo2=bar%2B");
+}
+
+TEST(Curl, Single)
+{
+  curl::Url url(postman_echo_get_base, valid_params.begin(), valid_params.end());
+  curl::Json expected_response;
+  expected_response["foo1"] = "bar1";
+  expected_response["foo2"] = "bar2";
+
+  const auto data = curl::Get(url);
+
+  ASSERT_TRUE(data.second.Success());
+  EXPECT_EQ(data.first["args"], expected_response);
+}
+
+TEST(Curl, Double)
+{
+  curl::Url url(postman_echo_get_base, valid_params.begin(), valid_params.end());
+  curl::Url url2(postman_echo_get_base, valid_params_2.begin(), valid_params_2.end());
+
+  const auto urls = {url, url2};
+
+  curl::Json expected_response_first, expected_response_second;
+  expected_response_first["foo1"] = "bar1";
+  expected_response_first["foo2"] = "bar2";
+  expected_response_second["foo3"] = "bar3";
+  expected_response_second["foo4"] = "bar4";
+
+  const auto data = curl::Get(urls.begin(), urls.end());
+
+  ASSERT_TRUE(data.second.Success());
+  ASSERT_TRUE(data.first.find(url) != data.first.end());
+  ASSERT_TRUE(data.first.find(url2) != data.first.end());
+
+  const auto json1 = data.first.find(url)->second.first, json2 = data.first.find(url2)->second.first;
+
+  EXPECT_EQ(json1["args"], expected_response_first);
+  EXPECT_EQ(json2["args"], expected_response_second);
+}
+
+TEST(Curl, GarbageUrl)
+{
+  curl::Url garbage("garbage_url");
+  const auto data = curl::Get(garbage);
+  EXPECT_TRUE(data.second.Failure());
 }
