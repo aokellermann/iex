@@ -74,6 +74,7 @@ struct EasyHandleDataPair : std::pair<EasyHandle, std::string>
     curl_easy_setopt(first.handle_, CURLOPT_ACCEPT_ENCODING, "");
     curl_easy_setopt(first.handle_, CURLOPT_SSL_VERIFYPEER, 0L);
     curl_easy_setopt(first.handle_, CURLOPT_SSL_VERIFYHOST, 0L);
+    curl_easy_setopt(first.handle_, CURLOPT_NOSIGNAL, 1L);
   }
 
   void AssignUrl(const Url& url)
