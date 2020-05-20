@@ -27,6 +27,9 @@ namespace iex::curl
 {
 // region Url
 
+/**
+ * Represents a Url that can be the subject of an HTTP GET
+ */
 class Url
 {
  public:
@@ -85,15 +88,28 @@ struct UrlEquality
 
 using Json = nlohmann::json;
 
+/**
+ * Performs HTTP GET on target Urls, with max_connection maximum parallel HTTP connections.
+ * @tparam InputIt Iterator such that it can be dereferenced to a Url.
+ * @param urls_begin beginning of Url container
+ * @param urls_end end of Url container
+ * @param max_connections number of maximum HTTP parellel connections allowed (0 means no limit)
+ * @return
+ */
 template <class InputIt>
 ValueWithErrorCode<std::unordered_map<Url, ValueWithErrorCode<Json>, UrlHasher, UrlEquality>> Get(
     InputIt urls_begin, InputIt urls_end, int max_connections = 0);
 
+/**
+ * See templated Get function.
+ */
 ValueWithErrorCode<Json> Get(const Url& url, int max_connections = 0)
 {
   const auto url_list = {url};
   auto data_map = Get(url_list.begin(), url_list.end(), max_connections);
-  return {data_map.first[url].first, data_map.second};
+  const auto iter = data_map.first.find(url);
+  const auto& json = iter != data_map.first.end() ? iter->second.first : Json();
+  return {json, data_map.second};
 }
 
 // endregion Interface

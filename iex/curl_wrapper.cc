@@ -61,25 +61,39 @@ struct EasyHandle
   CURL* handle_;
 };
 
+/**
+ * RAII wrapper for CURL easy handle and its corresponding data.
+ *
+ * This wrapper is reusable. To reuse with the same Url, nothing special needs to be done. If you would like to reuse
+ * with a new Url, call AssignUrl, passing the Url you would like to use.
+ *
+ * After use, ExtractData should be called (so that the data buffer is cleared).
+ */
 struct EasyHandleDataPair : std::pair<EasyHandle, std::string>
 {
-  EasyHandleDataPair() = default;
+  EasyHandleDataPair() = delete;
 
   explicit EasyHandleDataPair(const Url& url)
   {
     AssignUrl(url);
+
+    // Follow any redirections
     curl_easy_setopt(first.handle_, CURLOPT_FOLLOWLOCATION, 1L);
+    // Set output data location
     curl_easy_setopt(first.handle_, CURLOPT_WRITEFUNCTION, &WriteFunc);
+    // Set write callback for appending data
     curl_easy_setopt(first.handle_, CURLOPT_WRITEDATA, &second);
+    // Accept all types of encoding
     curl_easy_setopt(first.handle_, CURLOPT_ACCEPT_ENCODING, "");
-    curl_easy_setopt(first.handle_, CURLOPT_SSL_VERIFYPEER, 0L);
-    curl_easy_setopt(first.handle_, CURLOPT_SSL_VERIFYHOST, 0L);
+    // Turns off internal signalling to ensure thread-safety. See here: https://curl.haxx.se/libcurl/c/threadsafe.html
     curl_easy_setopt(first.handle_, CURLOPT_NOSIGNAL, 1L);
   }
 
   void AssignUrl(const Url& url)
   {
+    // Set Url
     curl_easy_setopt(first.handle_, CURLOPT_URL, url.GetAsString().c_str());
+    // Store pointer to associated Url.
     curl_easy_setopt(first.handle_, CURLOPT_PRIVATE, &url);
   }
 
@@ -108,10 +122,17 @@ struct MultiHandle
   CURLM* handle_;
 };
 
-class MultiHandleImpl
+class MultiHandleWrapper
 {
  public:
-  // Adapted from https://curl.haxx.se/libcurl/c/10-at-a-time.html
+  /**
+   * Performs HTTP GETs on the input Urls, allowing at most max_connection parallel connections.
+   *
+   * This function is adapted from https://curl.haxx.se/libcurl/c/10-at-a-time.html
+   * @param url_set the Urls to perform HTTP GET on
+   * @param max_connections maximum number of parallel connections
+   * @return map of Url to returned Json data (with ErrorCode if encountered)
+   */
   std::unordered_map<Url, ValueWithErrorCode<Json>, UrlHasher, UrlEquality> Get(
       const std::unordered_set<Url, UrlHasher, UrlEquality>& url_set, int max_connections)
   {
@@ -168,6 +189,10 @@ class MultiHandleImpl
   }
 
  private:
+  /**
+   * Populates handles_in_use_ with valid Url-assigned handles.
+   * @param url_set the Urls for which handles are requirded
+   */
   void GetAvailableHandles(const std::unordered_set<Url, UrlHasher, UrlEquality>& url_set)
   {
     // Try to find handles with the same Url first.
@@ -213,6 +238,9 @@ class MultiHandleImpl
     }
   }
 
+  /**
+   * Moves all handles from handles_in_use_ to available_handles.
+   */
   void ClearUsedHandles()
   {
     // Move all to available.
@@ -224,7 +252,12 @@ class MultiHandleImpl
   std::unordered_map<Url, EasyHandleDataPair, UrlHasher, UrlEquality> available_handles;
 };
 
-thread_local std::unique_ptr<MultiHandleImpl> local_multi_handle;
+/**
+ * Thread local multi handle, used for performing multiple GETs in parallel. This variable is lazily initialized.
+ *
+ * By using a thread local multi handle, our CURL wrapper can be completely lock free!
+ */
+thread_local std::unique_ptr<MultiHandleWrapper> local_multi_handle;
 
 // endregion Helpers
 
@@ -260,6 +293,9 @@ std::unique_ptr<CurlInitImpl> curl_init_impl;
 
 // region Curl Escape
 
+/**
+ * This handle is maintained
+ */
 std::unique_ptr<EasyHandle> curl_escape_handle;
 
 // endregionCurl Escape
@@ -289,7 +325,7 @@ std::unordered_map<Url, ValueWithErrorCode<Json>, UrlHasher, UrlEquality> Get(
 {
   if (!detail::local_multi_handle)
   {
-    detail::local_multi_handle = std::make_unique<detail::MultiHandleImpl>();
+    detail::local_multi_handle = std::make_unique<detail::MultiHandleWrapper>();
   }
 
   return detail::local_multi_handle->Get(url_set, max_connections);
@@ -308,6 +344,8 @@ ValueWithErrorCode<std::string> GetEscapedUrlStringFromPlaintextString(const std
       curl_easy_escape(detail::curl_escape_handle->handle_, plaintext_url_string.c_str(), plaintext_url_string.size());
   std::string escaped_string(escaped_c_string);
   curl_free(escaped_c_string);
+
+  // CURL documentation states that a null or empty return value from curl_easy_escape indicates failure.
   if (escaped_string.empty())
   {
     return {std::string(), ErrorCode("curl_easy_escape() failed")};
@@ -353,6 +391,7 @@ ValueWithErrorCode<std::unordered_map<Url, ValueWithErrorCode<Json>, UrlHasher, 
                                                                                                   InputIt urls_end,
                                                                                                   int max_connections)
 {
+  // Check if CURL initialization previously succeeded (it is typically initialized on Url construction).
   const auto& init_ec = InitIfNeeded();
   if (init_ec.Failure())
   {
@@ -360,6 +399,7 @@ ValueWithErrorCode<std::unordered_map<Url, ValueWithErrorCode<Json>, UrlHasher, 
             ErrorCode("curl::Get failed", init_ec)};
   }
 
+  // Check for duplicates and invalid Urls.
   const std::unordered_set<Url, UrlHasher, UrlEquality> url_set(urls_begin, urls_end);
   for (const auto& url : url_set)
   {
@@ -371,7 +411,10 @@ ValueWithErrorCode<std::unordered_map<Url, ValueWithErrorCode<Json>, UrlHasher, 
     }
   }
 
+  // Perform GET.
   auto data_map = Get(url_set, max_connections);
+
+  // Generate ErrorCode if any GETs failed.
   std::vector<ErrorCode> named_errors;
   for (const auto& [url, pair] : data_map)
   {
