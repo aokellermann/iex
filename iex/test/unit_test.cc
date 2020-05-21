@@ -15,12 +15,13 @@
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#include <gtest/gtest.h>
+
 #include <mutex>
 #include <thread>
 #include <unordered_set>
 #include <vector>
 
-#include <gtest/gtest.h>  // NOLINT Why does linter think this is a C library?
 #include "iex/iex.h"
 #include "iex/singleton.h"
 
