@@ -86,6 +86,15 @@ struct UrlEquality
 
 // region Interface
 
+/**
+ * Initializes all CURL components.
+ *
+ * This function must be called once at the beginning of the program before ANY other threads have been created.
+ * See https://curl.haxx.se/libcurl/c/curl_global_init.html
+ * @return
+ */
+ErrorCode Init();
+
 using Json = nlohmann::json;
 
 /**

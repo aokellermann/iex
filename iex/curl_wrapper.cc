@@ -386,6 +386,8 @@ void Url::AppendParam(const std::string& name, const std::string& raw_value, boo
 
 // region Interface
 
+ErrorCode Init() { return InitIfNeeded(); }
+
 template <class InputIt>
 ValueWithErrorCode<std::unordered_map<Url, ValueWithErrorCode<Json>, UrlHasher, UrlEquality>> Get(InputIt urls_begin,
                                                                                                   InputIt urls_end,
