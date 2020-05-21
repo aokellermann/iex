@@ -16,6 +16,7 @@
  */
 
 #include "iex/iex.h"
+
 #include "iex/curl_wrapper.h"
 
 namespace iex
