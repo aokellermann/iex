@@ -133,8 +133,7 @@ class MultiHandleWrapper
    * @param max_connections maximum number of parallel connections
    * @return map of Url to returned Json data (with ErrorCode if encountered)
    */
-  std::unordered_map<Url, ValueWithErrorCode<Json>, UrlHasher, UrlEquality> Get(
-      const std::unordered_set<Url, UrlHasher, UrlEquality>& url_set, int max_connections)
+  GetMap Get(const UrlSet& url_set, int max_connections)
   {
     // Populate handles_in_use_.
     GetAvailableHandles(url_set);
@@ -147,7 +146,7 @@ class MultiHandleWrapper
     int still_alive = 1;
 
     // Contains information about failed GETs.
-    std::unordered_map<Url, ErrorCode, UrlHasher, UrlEquality> ecs;
+    UrlMap<ErrorCode> ecs;
 
     while (still_alive)
     {
@@ -175,7 +174,7 @@ class MultiHandleWrapper
       }
     }
 
-    std::unordered_map<Url, ValueWithErrorCode<Json>, UrlHasher, UrlEquality> return_data;
+    GetMap return_data;
     for (auto& handle : handles_in_use_)
     {
       auto ec_iter = ecs.find(handle.first);
@@ -248,8 +247,8 @@ class MultiHandleWrapper
   }
 
   MultiHandle multi_handle_;
-  std::unordered_map<Url, EasyHandleDataPair, UrlHasher, UrlEquality> handles_in_use_;
-  std::unordered_map<Url, EasyHandleDataPair, UrlHasher, UrlEquality> available_handles;
+  UrlMap<EasyHandleDataPair> handles_in_use_;
+  UrlMap<EasyHandleDataPair> available_handles;
 };
 
 /**
@@ -320,8 +319,7 @@ const ErrorCode& InitIfNeeded()
 
 const ErrorCode& InitIfNeeded() { return detail::InitIfNeeded(); }
 
-std::unordered_map<Url, ValueWithErrorCode<Json>, UrlHasher, UrlEquality> PerformGet(
-    const std::unordered_set<Url, UrlHasher, UrlEquality>& url_set, int max_connections)
+GetMap PerformGet(const std::unordered_set<Url, UrlHasher, UrlEquality>& url_set, int max_connections)
 {
   if (!detail::local_multi_handle)
   {
@@ -388,15 +386,13 @@ void Url::AppendParam(const std::string& name, const std::string& raw_value, boo
 
 ErrorCode Init() { return InitIfNeeded(); }
 
-ValueWithErrorCode<std::unordered_map<Url, ValueWithErrorCode<Json>, UrlHasher, UrlEquality>> Get(
-    const std::unordered_set<Url, UrlHasher, UrlEquality>& url_set, int max_connections)
+ValueWithErrorCode<GetMap> Get(const std::unordered_set<Url, UrlHasher, UrlEquality>& url_set, int max_connections)
 {
   // Check if CURL initialization previously succeeded (it is typically initialized on Url construction).
   const auto& init_ec = InitIfNeeded();
   if (init_ec.Failure())
   {
-    return {std::unordered_map<Url, ValueWithErrorCode<Json>, UrlHasher, UrlEquality>(),
-            ErrorCode("curl::Get failed", init_ec)};
+    return {GetMap(), ErrorCode("curl::Get failed", init_ec)};
   }
 
   // Check for invalid Urls.
@@ -404,9 +400,8 @@ ValueWithErrorCode<std::unordered_map<Url, ValueWithErrorCode<Json>, UrlHasher, 
   {
     if (url.Validity().Failure())
     {
-      return {std::unordered_map<Url, ValueWithErrorCode<Json>, UrlHasher, UrlEquality>(),
-              ErrorCode(std::string("curl::Get failed"),
-                        ErrorCode(std::string("at least one Url is invalid"), url.Validity()))};
+      return {GetMap(), ErrorCode(std::string("curl::Get failed"),
+                                  ErrorCode(std::string("at least one Url is invalid"), url.Validity()))};
     }
   }
 

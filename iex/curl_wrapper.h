@@ -83,6 +83,11 @@ struct UrlEquality
   size_t operator()(const Url& a, const Url& b) const noexcept { return a.GetAsString() == b.GetAsString(); }
 };
 
+template <typename T>
+using UrlMap = std::unordered_map<Url, T, UrlHasher, UrlEquality>;
+
+using UrlSet = std::unordered_set<Url, UrlHasher, UrlEquality>;
+
 // endregion
 
 // region Interface
@@ -98,11 +103,17 @@ ErrorCode Init();
 
 using Json = nlohmann::json;
 
+using GetResponse = ValueWithErrorCode<Json>;
+
+template <typename T>
+using UrlMap = std::unordered_map<Url, T, UrlHasher, UrlEquality>;
+
+using GetMap = UrlMap<GetResponse>;
+
 /**
  * See templated Get function.
  */
-ValueWithErrorCode<std::unordered_map<Url, ValueWithErrorCode<Json>, UrlHasher, UrlEquality>> Get(
-    const std::unordered_set<Url, UrlHasher, UrlEquality>& url_set, int max_connections = 0);
+ValueWithErrorCode<GetMap> Get(const UrlSet& url_set, int max_connections = 0);
 
 /**
  * Performs HTTP GET on target Urls, with max_connection maximum parallel HTTP connections.
@@ -113,17 +124,16 @@ ValueWithErrorCode<std::unordered_map<Url, ValueWithErrorCode<Json>, UrlHasher, 
  * @return map of Url to corresponding returned data (with error code)
  */
 template <class InputIt>
-inline ValueWithErrorCode<std::unordered_map<Url, ValueWithErrorCode<Json>, UrlHasher, UrlEquality>> Get(
-    InputIt urls_begin, InputIt urls_end, int max_connections = 0)
+inline ValueWithErrorCode<GetMap> Get(InputIt urls_begin, InputIt urls_end, int max_connections = 0)
 {
-  const std::unordered_set<Url, UrlHasher, UrlEquality> url_set(urls_begin, urls_end);
+  const UrlSet url_set(urls_begin, urls_end);
   return Get(url_set, max_connections);
 }
 
 /**
  * See templated Get function.
  */
-inline ValueWithErrorCode<Json> Get(const Url& url, int max_connections = 0)
+inline GetResponse Get(const Url& url, int max_connections = 0)
 {
   const auto url_list = {url};
   auto data_map = Get(url_list.begin(), url_list.end(), max_connections);
