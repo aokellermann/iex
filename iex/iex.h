@@ -90,6 +90,13 @@ using ValueWithErrorCode = std::pair<T, ErrorCode>;
 
 // endregion error code
 
+// region Interface
+/**
+ * This function must be called once at program startup, before any other threads have been created.
+ * @return ErrorCode
+ */
 ErrorCode Init();
+
+// endregion Interface
 
 }  // namespace iex
