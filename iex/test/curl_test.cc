@@ -33,29 +33,45 @@ const std::initializer_list<std::pair<const char*, const char*>> encode_params =
 
 const char* postman_echo_get_base = "https://postman-echo.com/get";
 
-TEST(Url, Validity)
+struct UrlInitParams
 {
-  EXPECT_TRUE(curl::Url("").Validity().Failure());
-  EXPECT_TRUE(curl::Url("", empty_params.begin(), empty_params.end()).Validity().Failure());
-  EXPECT_TRUE(curl::Url("", valid_params.begin(), valid_params.end()).Validity().Failure());
-  EXPECT_TRUE(curl::Url("base", invalid_name.begin(), invalid_name.end()).Validity().Failure());
-  EXPECT_TRUE(curl::Url("base", invalid_value.begin(), invalid_value.end()).Validity().Failure());
+  const char* base;
+  const std::initializer_list<std::pair<const char*, const char*>>* params;
+  bool valid;
+  const char* encoded_url;
+};
 
-  EXPECT_TRUE(curl::Url("base").Validity().Success());
-  EXPECT_TRUE(curl::Url("base", empty_params.begin(), empty_params.end()).Validity().Success());
-  EXPECT_TRUE(curl::Url("base", valid_params.begin(), valid_params.end()).Validity().Success());
-
-  EXPECT_TRUE(curl::Url("").GetAsString().empty());
-  EXPECT_TRUE(curl::Url("base", invalid_value.begin(), invalid_value.end()).GetAsString().empty());
-}
-
-TEST(Url, EqualityWithoutEncoding)
+class Url : public testing::TestWithParam<UrlInitParams>
 {
-  EXPECT_EQ(curl::Url("base").GetAsString(), "base");
-  EXPECT_EQ(curl::Url("base", empty_params.begin(), empty_params.end()).GetAsString(), "base");
-  EXPECT_EQ(curl::Url("base", valid_params.begin(), valid_params.end()).GetAsString(), "base?foo1=bar1&foo2=bar2");
-  EXPECT_EQ(curl::Url("base", encode_params.begin(), encode_params.end()).GetAsString(), "base?foo1=bar1&foo2=bar%2B");
-}
+ protected:
+  Url()
+  {
+    const auto& param = GetParam();
+    url = param.params == nullptr
+              ? new curl::Url(param.base)
+              : new curl::Url(GetParam().base, GetParam().params->begin(), GetParam().params->end());
+  }
+
+  ~Url() override { delete url; }
+
+  curl::Url* url;
+};
+
+TEST_P(Url, CorrectValidity) { EXPECT_EQ(url->Validity().Success(), GetParam().valid); }
+
+TEST_P(Url, Encoding) { EXPECT_EQ(url->GetAsString(), GetParam().valid ? GetParam().encoded_url : ""); }
+
+INSTANTIATE_TEST_CASE_P(Correctness,
+                        Url,
+                        testing::Values(UrlInitParams{"", nullptr, false},
+                                        UrlInitParams{"", &empty_params, false},
+                                        UrlInitParams{"", &valid_params, false},
+                                        UrlInitParams{"base", &invalid_name, false},
+                                        UrlInitParams{"base", &invalid_value, false},
+                                        UrlInitParams{"base", nullptr, true, "base"},
+                                        UrlInitParams{"base", &empty_params, true, "base"},
+                                        UrlInitParams{"base", &valid_params, true, "base?foo1=bar1&foo2=bar2"},
+                                        UrlInitParams{"base", &encode_params, true, "base?foo1=bar1&foo2=bar%2B"}));
 
 TEST(Curl, Single)
 {
