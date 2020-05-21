@@ -21,7 +21,6 @@
 #include <thread>
 
 #include "iex/curl_wrapper.h"
-#include "iex/iex.h"
 
 namespace curl = iex::curl;
 
@@ -68,7 +67,7 @@ TEST(Curl, Single)
   const auto data = curl::Get(url);
 
   ASSERT_TRUE(data.second.Success());
-  EXPECT_EQ(data.first["args"], expected_response);
+  EXPECT_EQ(data.first["args"].dump(4), expected_response.dump(4));
 }
 
 TEST(Curl, Double)
@@ -92,8 +91,8 @@ TEST(Curl, Double)
 
   const auto json1 = data.first.find(url)->second.first, json2 = data.first.find(url2)->second.first;
 
-  EXPECT_EQ(json1["args"], expected_response_first);
-  EXPECT_EQ(json2["args"], expected_response_second);
+  EXPECT_EQ(json1["args"].dump(4), expected_response_first.dump(4));
+  EXPECT_EQ(json2["args"].dump(4), expected_response_second.dump(4));
 }
 
 TEST(Curl, GarbageUrl)
@@ -117,7 +116,7 @@ TEST(Curl, Multithread)
   expected_response_second["foo4"] = "bar4";
 
   curl::Json responses[6];
-  const auto thread_func = [&urls,  &responses](int i) {
+  const auto thread_func = [&urls, &responses](int i) {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));  // Try to induce pileup
     auto map = curl::Get(urls);
     auto begin = urls.begin();
