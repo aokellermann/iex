@@ -38,6 +38,11 @@ class Url
 
   explicit Url(const char* base_url) : impl_(base_url), ec_(impl_.empty() ? "Empty URL" : "") {}
 
+  Url(const char* base_url, std::initializer_list<std::pair<const char*, const char*>> named_params)
+      : Url(base_url, named_params.begin(), named_params.end())
+  {
+  }
+
   template <class InputIt>
   Url(const char* base_url, InputIt params_begin, InputIt params_end) : Url(base_url)
   {
