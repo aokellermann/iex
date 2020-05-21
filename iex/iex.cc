@@ -20,7 +20,8 @@
 
 namespace iex
 {
-ErrorCode Init() {
+ErrorCode Init()
+{
   const auto ec = curl::Init();
   if (ec.Failure())
   {
