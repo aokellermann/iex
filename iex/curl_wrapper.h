@@ -20,6 +20,7 @@
 #include <nlohmann/json.hpp>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "iex/iex.h"
 
@@ -98,21 +99,31 @@ ErrorCode Init();
 using Json = nlohmann::json;
 
 /**
+ * See templated Get function.
+ */
+ValueWithErrorCode<std::unordered_map<Url, ValueWithErrorCode<Json>, UrlHasher, UrlEquality>> Get(
+    const std::unordered_set<Url, UrlHasher, UrlEquality>& url_set, int max_connections = 0);
+
+/**
  * Performs HTTP GET on target Urls, with max_connection maximum parallel HTTP connections.
  * @tparam InputIt Iterator such that it can be dereferenced to a Url.
  * @param urls_begin beginning of Url container
  * @param urls_end end of Url container
  * @param max_connections number of maximum HTTP parellel connections allowed (0 means no limit)
- * @return
+ * @return map of Url to corresponding returned data (with error code)
  */
 template <class InputIt>
-ValueWithErrorCode<std::unordered_map<Url, ValueWithErrorCode<Json>, UrlHasher, UrlEquality>> Get(
-    InputIt urls_begin, InputIt urls_end, int max_connections = 0);
+inline ValueWithErrorCode<std::unordered_map<Url, ValueWithErrorCode<Json>, UrlHasher, UrlEquality>> Get(
+    InputIt urls_begin, InputIt urls_end, int max_connections = 0)
+{
+  const std::unordered_set<Url, UrlHasher, UrlEquality> url_set(urls_begin, urls_end);
+  return Get(url_set, max_connections);
+}
 
 /**
  * See templated Get function.
  */
-ValueWithErrorCode<Json> Get(const Url& url, int max_connections = 0)
+inline ValueWithErrorCode<Json> Get(const Url& url, int max_connections = 0)
 {
   const auto url_list = {url};
   auto data_map = Get(url_list.begin(), url_list.end(), max_connections);

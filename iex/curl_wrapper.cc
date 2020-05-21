@@ -320,7 +320,7 @@ const ErrorCode& InitIfNeeded()
 
 const ErrorCode& InitIfNeeded() { return detail::InitIfNeeded(); }
 
-std::unordered_map<Url, ValueWithErrorCode<Json>, UrlHasher, UrlEquality> Get(
+std::unordered_map<Url, ValueWithErrorCode<Json>, UrlHasher, UrlEquality> PerformGet(
     const std::unordered_set<Url, UrlHasher, UrlEquality>& url_set, int max_connections)
 {
   if (!detail::local_multi_handle)
@@ -388,10 +388,8 @@ void Url::AppendParam(const std::string& name, const std::string& raw_value, boo
 
 ErrorCode Init() { return InitIfNeeded(); }
 
-template <class InputIt>
-ValueWithErrorCode<std::unordered_map<Url, ValueWithErrorCode<Json>, UrlHasher, UrlEquality>> Get(InputIt urls_begin,
-                                                                                                  InputIt urls_end,
-                                                                                                  int max_connections)
+ValueWithErrorCode<std::unordered_map<Url, ValueWithErrorCode<Json>, UrlHasher, UrlEquality>> Get(
+    const std::unordered_set<Url, UrlHasher, UrlEquality>& url_set, int max_connections)
 {
   // Check if CURL initialization previously succeeded (it is typically initialized on Url construction).
   const auto& init_ec = InitIfNeeded();
@@ -401,8 +399,7 @@ ValueWithErrorCode<std::unordered_map<Url, ValueWithErrorCode<Json>, UrlHasher, 
             ErrorCode("curl::Get failed", init_ec)};
   }
 
-  // Check for duplicates and invalid Urls.
-  const std::unordered_set<Url, UrlHasher, UrlEquality> url_set(urls_begin, urls_end);
+  // Check for invalid Urls.
   for (const auto& url : url_set)
   {
     if (url.Validity().Failure())
@@ -414,7 +411,7 @@ ValueWithErrorCode<std::unordered_map<Url, ValueWithErrorCode<Json>, UrlHasher, 
   }
 
   // Perform GET.
-  auto data_map = Get(url_set, max_connections);
+  auto data_map = PerformGet(url_set, max_connections);
 
   // Generate ErrorCode if any GETs failed.
   std::vector<ErrorCode> named_errors;
