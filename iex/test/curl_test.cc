@@ -48,8 +48,8 @@ class Url : public testing::TestWithParam<UrlInitParams>
   {
     const auto& param = GetParam();
     url_ = param.params == nullptr
-              ? new curl::Url(param.base)
-              : new curl::Url(GetParam().base, GetParam().params->begin(), GetParam().params->end());
+               ? new curl::Url(param.base)
+               : new curl::Url(GetParam().base, GetParam().params->begin(), GetParam().params->end());
   }
 
   ~Url() override { delete url_; }
