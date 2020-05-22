@@ -60,7 +60,7 @@ TEST(Singleton, SingletonUnique)
     set.insert(instance);
   };
 
-  const std::size_t num_threads = 10;
+  const std::size_t num_threads = 1000;
   std::vector<std::thread> threads(num_threads);
   for (int i = 0; i < num_threads; ++i)
   {
