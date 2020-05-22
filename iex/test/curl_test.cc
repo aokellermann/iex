@@ -47,19 +47,19 @@ class Url : public testing::TestWithParam<UrlInitParams>
   Url()
   {
     const auto& param = GetParam();
-    url = param.params == nullptr
+    url_ = param.params == nullptr
               ? new curl::Url(param.base)
               : new curl::Url(GetParam().base, GetParam().params->begin(), GetParam().params->end());
   }
 
-  ~Url() override { delete url; }
+  ~Url() override { delete url_; }
 
-  curl::Url* url;
+  curl::Url* url_;
 };
 
-TEST_P(Url, CorrectValidity) { EXPECT_EQ(url->Validity().Success(), GetParam().valid); }
+TEST_P(Url, CorrectValidity) { EXPECT_EQ(url_->Validity().Success(), GetParam().valid); }
 
-TEST_P(Url, Encoding) { EXPECT_EQ(url->GetAsString(), GetParam().valid ? GetParam().encoded_url : ""); }
+TEST_P(Url, Encoding) { EXPECT_EQ(url_->GetAsString(), GetParam().valid ? GetParam().encoded_url : ""); }
 
 INSTANTIATE_TEST_CASE_P(Correctness,
                         Url,
