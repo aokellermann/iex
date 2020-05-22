@@ -35,11 +35,13 @@ namespace iex::curl
 class Url
 {
  public:
+  using NamedParam = NamedPair<std::string>;
+
   Url() = delete;
 
   explicit Url(std::string base_url) : impl_(std::move(base_url)), ec_(impl_.empty() ? "Empty URL" : "") {}
 
-  Url(const std::string& base_url, std::initializer_list<std::pair<const char*, const char*>> named_params)
+  Url(const std::string& base_url, std::initializer_list<NamedParam> named_params)
       : Url(base_url, named_params.begin(), named_params.end())
   {
   }
