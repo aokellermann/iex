@@ -44,8 +44,6 @@ class ErrorCode : public std::string
 
   ErrorCode(const ErrorCode& ec) = default;
 
-  ErrorCode(ErrorCode&& ec) = default;
-
   explicit ErrorCode(const char* str) : std::string(str) {}
 
   explicit ErrorCode(const std::string& str) : std::string(str) {}
@@ -55,15 +53,20 @@ class ErrorCode : public std::string
   explicit ErrorCode(const NamedPair<ErrorCode>& named_ec) : ErrorCode(named_ec.first, named_ec.second) {}
 
   ErrorCode(const std::string& message, const std::initializer_list<NamedPair<ErrorCode>>& named_ec_list)
-      : std::string(message)
+      : ErrorCode(message, named_ec_list.begin(), named_ec_list.end())
   {
-    if (named_ec_list.size() != 0)
+  }
+
+  template <class InputIt>
+  ErrorCode(const std::string& message, InputIt named_ecs_begin, InputIt named_ecs_end) : std::string(message)
+  {
+    if (named_ecs_begin != named_ecs_end)
     {
       append(": [");
 
-      for (const auto& named_ec : named_ec_list)
+      for (auto iter = named_ecs_begin; iter != named_ecs_end; ++iter)
       {
-        append(ErrorCode(named_ec) + ", ");
+        append(ErrorCode(*iter) + ", ");
       }
       pop_back();
       pop_back();
@@ -82,8 +85,18 @@ class ErrorCode : public std::string
   // endregion Success/Failure
 };
 
+template <typename T>
+using ValueWithErrorCode = std::pair<T, ErrorCode>;
+
 // endregion error code
 
+// region Interface
+/**
+ * This function must be called once at program startup, before any other threads have been created.
+ * @return ErrorCode
+ */
 ErrorCode Init();
+
+// endregion Interface
 
 }  // namespace iex

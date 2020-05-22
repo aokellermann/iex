@@ -48,6 +48,7 @@ set(iex_headers
         )
 set(iex_sources
         iex.cc
+        curl_wrapper.cc
         )
 
 # Specify source directory.

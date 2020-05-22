@@ -37,7 +37,7 @@ TEST(iex, init_test)
  * Then, puts them into a set, using their id as a hash.
  * If singleton works properly, the set will be of size 1.
  */
-TEST(iex, singleton_unique)
+TEST(Singleton, SingletonUnique)
 {
   struct SingletonImpl
   {
