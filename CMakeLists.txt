@@ -128,10 +128,10 @@ if (IEX_BUILD_DOCUMENTATION)
 
     # Don't try to generate docs for testing.
     set(DOXYGEN_RECURSIVE NO)
-
     doxygen_add_docs(
-            doxygen
-            ${PROJECT_SOURCE_DIR}
+            doc
+            ALL
+            ${CMAKE_CURRENT_SOURCE_DIR}/iex
             COMMENT "Generate documentation"
     )
 
