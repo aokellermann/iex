@@ -128,10 +128,11 @@ if (IEX_BUILD_DOCUMENTATION)
 
     # Don't try to generate docs for testing.
     set(DOXYGEN_RECURSIVE NO)
+    set(DOXYGEN_USE_MDFILE_AS_MAINPAGE ${CMAKE_CURRENT_SOURCE_DIR}/README.md)
     doxygen_add_docs(
             doc
             ALL
-            ${CMAKE_CURRENT_SOURCE_DIR}/iex
+            ${CMAKE_CURRENT_SOURCE_DIR}/iex ${CMAKE_CURRENT_SOURCE_DIR}/README.md ${CMAKE_CURRENT_SOURCE_DIR}/.github/CONTRIBUTING.md
             COMMENT "Generate documentation"
     )
 
