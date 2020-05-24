@@ -2,12 +2,14 @@ cmake_minimum_required(VERSION 3.16)
 project(iex
         VERSION 0.0.1
         LANGUAGES CXX
+        DESCRIPTION "C++17 library for querying IEX Cloud REST API."
         )
 message(STATUS "${PROJECT_NAME} version: ${PROJECT_VERSION}")
 
-# Options related to weed whacking and testing.
+# Options related to weed whacking, testing, and documentation.
 option(IEX_ENABLE_ALLWARNINGS "Add GCC/Clang compatible compile options." OFF)
 option(IEX_BUILD_TESTING "Enable unit testing." OFF)
+option(IEX_BUILD_DOCUMENTATION "Generate Doxygen documentation." ON)
 
 # Set configuration: Either Debug, Release (default), MinSizeRel, or RelWithDebInfo.
 if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -57,7 +59,7 @@ list(TRANSFORM iex_sources PREPEND "iex/")
 
 # Create shared library.
 add_library(iex SHARED ${iex_sources})
-include(GNUInstallDirs) # Define CMAKE_INSTALL_xxx: LIBDIR, INCLUDEDIR
+include(GNUInstallDirs) # Define LIBDIR, INCLUDEDIR, DOCDIR
 target_include_directories(iex PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
@@ -69,6 +71,7 @@ set(IEX_LIBRARIES iex)
 # Find and link dependencies.
 find_package(CURL REQUIRED)
 find_package(nlohmann_json 3.2.0 REQUIRED)
+find_package(Doxygen)
 target_link_libraries(iex CURL::libcurl nlohmann_json::nlohmann_json)
 
 # Install shared object.
@@ -116,6 +119,26 @@ if (IEX_BUILD_TESTING)
     endif ()
 
     add_subdirectory(iex/test)
+endif ()
+
+if (IEX_BUILD_DOCUMENTATION)
+    if (NOT DOXYGEN_FOUND)
+        message(FATAL_ERROR "Doxygen is needed to build the documentation.")
+    endif ()
+
+    # Don't try to generate docs for testing.
+    set(DOXYGEN_RECURSIVE NO)
+
+    doxygen_add_docs(
+            doxygen
+            ${PROJECT_SOURCE_DIR}
+            COMMENT "Generate documentation"
+    )
+
+    install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/html
+            DESTINATION ${CMAKE_INSTALL_DOCDIR}
+            COMPONENT development
+            )
 endif ()
 
 # Install
