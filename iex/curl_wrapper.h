@@ -110,7 +110,7 @@ using UrlSet = std::unordered_set<Url, UrlHasher, UrlEquality>;
  */
 ErrorCode Init();
 
-using iex::json::Json;
+using json::Json;
 
 using GetResponse = ValueWithErrorCode<Json>;
 
