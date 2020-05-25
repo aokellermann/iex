@@ -24,6 +24,7 @@
 #include <utility>
 
 #include "iex/iex.h"
+#include "iex/json_serializer.h"
 
 namespace iex::curl
 {
@@ -109,7 +110,7 @@ using UrlSet = std::unordered_set<Url, UrlHasher, UrlEquality>;
  */
 ErrorCode Init();
 
-using Json = nlohmann::json;
+using iex::json::Json;
 
 using GetResponse = ValueWithErrorCode<Json>;
 
