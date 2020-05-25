@@ -13,6 +13,7 @@
 #include <utility>
 
 #include "iex/iex.h"
+#include "iex/json_serializer.h"
 
 /**
  * Contains all declarations necessary for performing a HTTP GET by a client.
@@ -120,10 +121,7 @@ using UrlSet = std::unordered_set<Url, UrlHasher, UrlEquality>;
  */
 ErrorCode Init();
 
-/**
- * Represents a JSON object.
- */
-using Json = nlohmann::json;
+using json::Json;
 
 /**
  * Represents an HTTP GET response: Json object containing response data, and ErrorCode denoting success or failure.
