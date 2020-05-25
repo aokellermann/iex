@@ -133,7 +133,9 @@ if (IEX_BUILD_DOCUMENTATION)
     doxygen_add_docs(
             doc
             ALL
-            ${CMAKE_CURRENT_SOURCE_DIR}/iex ${CMAKE_CURRENT_SOURCE_DIR}/README.md ${CMAKE_CURRENT_SOURCE_DIR}/.github/CONTRIBUTING.md
+            ${CMAKE_CURRENT_SOURCE_DIR}/iex
+            ${CMAKE_CURRENT_SOURCE_DIR}/README.md
+            ${CMAKE_CURRENT_SOURCE_DIR}/.github/CONTRIBUTING.md
             COMMENT "Generate documentation"
     )
 
