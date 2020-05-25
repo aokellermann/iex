@@ -8,7 +8,7 @@ C++ code in this repository follows [Google C++ Style](https://google.github.io/
 * Exceptions may be thrown.
 When in doubt, follow conventions in preexisting code.
 
-You code's conformity to this repo's style can be checked with `style.sh`. Any nonconformities will be printed to output. Dependencies for this script are:
+You code's conformity to this repo's style can be checked with `style.sh`. Any nonconformities will be printed to output. Your code must be built before running this script due to the way that `clang-tidy` works. Dependencies for this script are:
 * clang-tidy 10.0.0+
 * clang-format 10.0.0+
 
@@ -22,7 +22,7 @@ The project's `CMakeLists.txt` supports the following options:
 To perform a weed whack build, run:
 ```bash
 mkdir build && cd build
-cmake -DCMAKE_BUILD_TYPE=Debug -DIEX_ENABLE_ALLWARNINGS:BOOL=ON -DIEX_BUILD_TESTING:BOOL=ON ..
+cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=ON -DIEX_ENABLE_ALLWARNINGS:BOOL=ON -DIEX_BUILD_TESTING:BOOL=ON ..
 cd ..
 cmake --build build/
 ```
