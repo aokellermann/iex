@@ -4,6 +4,9 @@ jobs:
   build:
     docker:
       - image: aokellermann/iex:ci
+        auth:
+          username: aokellermann
+          password: $DOCKERHUB_PASSWORD
     steps:
       - checkout
       - run:
