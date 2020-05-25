@@ -6,4 +6,5 @@ cmake-build-debug/
 cmake-build-release/
 build/
 
+# Contains private API keys
 Dockerfile
