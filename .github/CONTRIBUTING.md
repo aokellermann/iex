@@ -8,7 +8,7 @@ C++ code in this repository follows [Google C++ Style](https://google.github.io/
 * Exceptions may be thrown.
 When in doubt, follow conventions in preexisting code.
 
-You code's conformity to this repo's style can be checked with `style.sh`. Any nonconformities will be printed to output. Your code must be built before running this script due to the way that `clang-tidy` works. Dependencies for this script are:
+You code's conformity to this repo's style can be checked with `style.sh`. Any nonconformities will be printed to output. Your code must be built before running this script due to the way that `clang-tidy` works. Due to the usage of GoogleTest, 100,000+ suppressed warnings will be generated, but you don't have to worry about this. Dependencies for this script are:
 * clang-tidy 10.0.0+
 * clang-format 10.0.0+
 
