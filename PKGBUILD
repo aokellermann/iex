@@ -9,6 +9,7 @@ arch=("x86_64")
 url="https://github.com/aokellermann/${_pkgname}"
 license=("MIT")
 depends=("curl" "nlohmann-json")
+optdepends=("doxygen: documentation")
 makedepends=("cmake" "git")
 provides=("${_pkgname}")
 conflicts=("${_pkgname}")
