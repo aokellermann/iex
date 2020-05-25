@@ -169,8 +169,8 @@ ValueWithErrorCode<std::string> ReadFile(const Path &path)
 }  // namespace
 
 FileIoBase::FileIoBase(const Path &relative_path, const Directory directory, const Extension extension)
-    : directory_path_(GetDirectoryName(directory)),
-      full_path_((directory_path_ / relative_path).string() + GetExtension(extension))
+    : directory_path_(GetDirectoryPath(directory)),
+      full_path_((directory_path_ / relative_path).string() + GetExtensionString(extension))
 {
   if (ec_.Success())
   {
@@ -178,7 +178,7 @@ FileIoBase::FileIoBase(const Path &relative_path, const Directory directory, con
   }
 }
 
-Path FileIoBase::GetDirectoryName(const Directory directory)
+Path FileIoBase::GetDirectoryPath(Directory directory)
 {
   switch (directory)
   {
@@ -200,7 +200,7 @@ Path FileIoBase::GetDirectoryName(const Directory directory)
   }
 }
 
-std::string FileIoBase::GetExtension(const Extension extension)
+std::string FileIoBase::GetExtensionString(Extension extension)
 {
   switch (extension)
   {

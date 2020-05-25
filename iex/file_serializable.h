@@ -87,9 +87,9 @@ class FileIoBase
   [[nodiscard]] const ErrorCode& Validity() const noexcept { return ec_; }
 
  private:
-  [[nodiscard]] Path GetDirectoryName(Directory directory);
+  [[nodiscard]] Path GetDirectoryPath(Directory directory);
 
-  [[nodiscard]] std::string GetExtension(Extension extension);
+  [[nodiscard]] std::string GetExtensionString(Extension extension);
 
   const Path directory_path_;
   const Path full_path_;
