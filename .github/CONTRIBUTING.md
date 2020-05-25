@@ -18,11 +18,12 @@ Ensure all dependencies listed [here](../README.md#Dependencies) are installed.
 The project's `CMakeLists.txt` supports the following options:
 * `IEX_ENABLE_ALLWARNINGS`: Turn on GCC/Clang compatible compiler warnings. Note: warnings will cause build to fail due to addition of `Werror`.
 * `IEX_BUILD_TESTING`: Build unit test target in addition to `iex`.
+* `IEX_BUILD_DOCUMENTATION`: Build documentation using `doxygen`.
 
 To perform a weed whack build, run:
 ```bash
 mkdir build && cd build
-cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=ON -DIEX_ENABLE_ALLWARNINGS:BOOL=ON -DIEX_BUILD_TESTING:BOOL=ON ..
+cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=ON -DIEX_BUILD_DOCUMENTATION:BOOL=OFF -DIEX_ENABLE_ALLWARNINGS:BOOL=ON -DIEX_BUILD_TESTING:BOOL=ON ..
 cd ..
 cmake --build build/
 ```

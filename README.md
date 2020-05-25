@@ -20,6 +20,7 @@ Building from source requires the installation of all necessary dependencies:
 * [cmake](https://github.com/Kitware/CMake) (build only)
 * [curl](https://github.com/curl/curl)
 * [json](https://github.com/nlohmann/json)
+* [doxygen](https://github.com/doxygen/doxygen) (optional documentation)
 
 ##### Clone and Build
 After dependencies are installed, run from a shell:
