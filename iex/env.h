@@ -26,7 +26,7 @@ namespace
  * This mutex is used to synchronize access to all environment variables.
  */
 std::shared_mutex mutex;
-}
+}  // namespace
 
 /**
  * Returns the value of the environment variable with the given name.
@@ -45,9 +45,18 @@ ValueWithErrorCode<std::string> GetEnv(const std::string& name)
     return {{}, ErrorCode("Environment variable name may not contain '=' character", {"name", ErrorCode(name)})};
   }
 
-  std::shared_lock lock(mutex);
-  const char* env_str = std::getenv(name.c_str());
-  if (env_str == nullptr)
+  std::string env_str;
+
+  {
+    std::shared_lock lock(mutex);
+    const char* env_c_str = std::getenv(name.c_str());
+    if (env_c_str != nullptr)
+    {
+      env_str = env_c_str;
+    }
+  }
+
+  if (env_str.empty())
   {
     return {{}, ErrorCode("Failed to get environment variable", {"name", ErrorCode(name)})};
   }
@@ -92,8 +101,13 @@ ErrorCode SetEnv(const std::string& name, const std::string& value)
                       {{"name", ErrorCode(name)}, {"value", ErrorCode(value)}})};
   }
 
-  std::unique_lock lock(mutex);
-  int success = setenv(name.c_str(), value.c_str(), 1) == 0;
+  int success;
+
+  {
+    std::unique_lock lock(mutex);
+    success = setenv(name.c_str(), value.c_str(), 1) == 0;
+  }
+
   if (!success)
   {
     return {{},
@@ -122,8 +136,13 @@ ErrorCode UnsetEnv(const std::string& name)
     return {{}, ErrorCode("Environment variable name may not contain '=' character", {"name", ErrorCode(name)})};
   }
 
-  std::unique_lock lock(mutex);
-  int success = unsetenv(name.c_str()) == 0;
+  int success;
+
+  {
+    std::unique_lock lock(mutex);
+    success = unsetenv(name.c_str()) == 0;
+  }
+
   if (!success)
   {
     return {{},
