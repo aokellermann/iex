@@ -1,18 +1,7 @@
 /**
- * Copyright 2020 Antony Kellermann
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
- * documentation files (the "Software"), to deal in the Software without restriction, including without limitation the
- * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
- * permit persons to whom the Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all copies or substantial portions of the
- * Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
- * WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
- * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * @file file_serializable.cc
+ * @author Antony Kellermann
+ * @copyright 2020 Antony Kellermann
  */
 
 #include "iex/file_serializable.h"
@@ -29,6 +18,11 @@ namespace
 {
 // region Reading and Writing
 
+/**
+ * Creates a directory with the given path. Does nothing if a directory already exists at the location.
+ * @param path the target path to create a directory at
+ * @return ErrorCode denoting success or failure
+ */
 ErrorCode CreateDirectory(const Path &path)
 {
   if (fs::is_directory(path))
@@ -60,6 +54,13 @@ ErrorCode CreateDirectory(const Path &path)
   return {};
 }
 
+/**
+ * Opens the given fstream with the given openmode.
+ * @param path the path to which stream is associated
+ * @param stream the fstream to open
+ * @param om the openmode to use on stream
+ * @return ErrorCode denoting success or failure
+ */
 ErrorCode OpenFileStream(const Path &path, std::fstream &stream, std::ios_base::openmode om)
 {
   try
@@ -84,18 +85,25 @@ ErrorCode OpenFileStream(const Path &path, std::fstream &stream, std::ios_base::
   return {};
 }
 
-ErrorCode WriteStream(const Path &path, const std::string &contents, std::ostream &ostream)
+/**
+ * Writes contents to the given ostream.
+ * @param path the path associated with stream
+ * @param contents the contents to write to stream
+ * @param stream the ostream to write to
+ * @return ErrorCode denoting success or failure
+ */
+ErrorCode WriteStream(const Path &path, const std::string &contents, std::ostream &stream)
 {
   try
   {
-    ostream.write(contents.c_str(), contents.size());
+    stream.write(contents.c_str(), contents.size());
   }
   catch (const std::exception &e)
   {
     return ErrorCode("ostream::write failed", {{"path", ErrorCode(path.string())}, {"error", ErrorCode(e.what())}});
   }
 
-  if (!ostream)
+  if (!stream)
   {
     return ErrorCode("ostream::write failed", {{"path", ErrorCode(path.string())}});
   }
@@ -103,13 +111,19 @@ ErrorCode WriteStream(const Path &path, const std::string &contents, std::ostrea
   return {};
 }
 
-ValueWithErrorCode<std::string> ReadStream(const std::filesystem::path &path, std::istream &istream)
+/**
+ * Reads all data from the given istream.
+ * @param path the path associated with stream
+ * @param stream the istream to read from
+ * @return file data if success and ErrorCode denoting success or failure
+ */
+ValueWithErrorCode<std::string> ReadStream(const std::filesystem::path &path, std::istream &stream)
 {
   const auto size = fs::file_size(path);
   std::string data(size, '\0');
   try
   {
-    istream.read(data.data(), size);
+    stream.read(data.data(), size);
   }
   catch (const std::exception &e)
   {
@@ -117,7 +131,7 @@ ValueWithErrorCode<std::string> ReadStream(const std::filesystem::path &path, st
             ErrorCode("istream::read failed", {{"path", ErrorCode(path.string())}, {"error", ErrorCode(e.what())}})};
   }
 
-  if (!istream)
+  if (!stream)
   {
     return {{}, ErrorCode("istream::read failed", {{"path", ErrorCode(path.string())}})};
   }
@@ -125,6 +139,12 @@ ValueWithErrorCode<std::string> ReadStream(const std::filesystem::path &path, st
   return {data, {}};
 }
 
+/**
+ * Writes contents to the given path.
+ * @param path the path to write to
+ * @param contents the data to write to path
+ * @return ErrorCode denoting success or failure
+ */
 ErrorCode WriteFile(const Path &path, const std::string &contents)
 {
   std::fstream out;
@@ -132,6 +152,11 @@ ErrorCode WriteFile(const Path &path, const std::string &contents)
   return WriteStream(path, contents, out);
 }
 
+/**
+ * Reads all data from the given path.
+ * @param path the path to read from
+ * @return file data if success and ErrorCode denoting success or failure
+ */
 ValueWithErrorCode<std::string> ReadFile(const Path &path)
 {
   std::fstream in;

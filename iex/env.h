@@ -1,18 +1,7 @@
 /**
- * Copyright 2020 Antony Kellermann
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
- * documentation files (the "Software"), to deal in the Software without restriction, including without limitation the
- * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
- * permit persons to whom the Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all copies or substantial portions of the
- * Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
- * WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
- * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * @file env.h
+ * @author Antony Kellermann
+ * @copyright 2020 Antony Kellermann
  */
 
 #pragma once
@@ -26,13 +15,24 @@
 
 #include "iex/iex.h"
 
+/**
+ * Contains synchronized methods for reading from and writing to environment variables.
+ */
 namespace iex::env
 {
 namespace
 {
+/**
+ * This mutex is used to synchronize access to all environment variables.
+ */
 std::shared_mutex mutex;
 }
 
+/**
+ * Returns the value of the environment variable with the given name.
+ * @param name the name of the environment variable
+ * @return environment variable value if success and ErrorCode denoting success or failure
+ */
 ValueWithErrorCode<std::string> GetEnv(const std::string& name)
 {
   if (name.empty())
@@ -55,6 +55,13 @@ ValueWithErrorCode<std::string> GetEnv(const std::string& name)
   return {std::string(env_str), {}};
 }
 
+/**
+ * Sets the value of the environment variable name to value. If the environment variable doesn't exist, it will be
+ * created. If it already exists, it will be modified.
+ * @param name the name of the environment variable
+ * @param value the value of the environment variable
+ * @return ErrorCode denoting success or failure
+ */
 ErrorCode SetEnv(const std::string& name, const std::string& value)
 {
   if (name.empty())
@@ -98,6 +105,11 @@ ErrorCode SetEnv(const std::string& name, const std::string& value)
   return {};
 }
 
+/**
+ * Removes the environment variable with the given name.
+ * @param name the name of the environment variable
+ * @return ErrorCode denoting success or failure
+ */
 ErrorCode UnsetEnv(const std::string& name)
 {
   if (name.empty())
