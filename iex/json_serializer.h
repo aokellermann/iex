@@ -24,9 +24,7 @@ namespace iex::json
 using Json = nlohmann::json;
 
 /**
- * This is a base class for objects that can serialized and deserialized with Json data.
- *
- * As this is an abstract interface, all functions must be overridden.
+ * This is an abstract interface for objects that can be serialized with Json data.
  */
 class JsonSerializable
 {
@@ -36,12 +34,26 @@ class JsonSerializable
    * @return Json
    */
   virtual ValueWithErrorCode<Json> Serialize() = 0;
+};
 
+/**
+ * This is an abstract interface for objects that can be deserialized with Json data.
+ */
+class JsonDeserializable
+{
+ protected:
   /**
    * Stores data from input_json in this object. This function must be overridden.
    * @return ErrorCode if failure
    */
   virtual ErrorCode Deserialize(const Json& input_json) = 0;
+};
+
+/**
+ * This is an abstract interface for objects that can be both serialized and deserialized with Json data.
+ */
+class JsonBidirectionalSerializable : protected JsonSerializable, protected JsonDeserializable
+{
 };
 
 }  // namespace iex::json
