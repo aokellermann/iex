@@ -88,7 +88,7 @@ struct UrlHasher
 
 struct UrlEquality
 {
-  size_t operator()(const Url& a, const Url& b) const noexcept { return a.GetAsString() == b.GetAsString(); }
+  bool operator()(const Url& a, const Url& b) const noexcept { return a.GetAsString() == b.GetAsString(); }
 };
 
 template <typename T>

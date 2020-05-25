@@ -9,8 +9,8 @@ C++ code in this repository follows [Google C++ Style](https://google.github.io/
 When in doubt, follow conventions in preexisting code.
 
 You code's conformity to this repo's style can be checked with `style.sh`. Any nonconformities will be printed to output. Dependencies for this script are:
-* [cpplint](https://raw.githubusercontent.com/google/styleguide/gh-pages/cpplint/cpplint.py)
-* clang-format 10.0.0
+* clang-tidy 10.0.0+
+* clang-format 10.0.0+
 
 ### Building
 Ensure all dependencies listed [here](../README.md#Dependencies) are installed.
