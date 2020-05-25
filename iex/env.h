@@ -26,6 +26,50 @@ namespace
  * This mutex is used to synchronize access to all environment variables.
  */
 std::shared_mutex mutex;
+
+/**
+ * Validates a given environment variable.
+ *
+ * An environment variable is valid if both the name and value are non-empty and the name and value do not contain any
+ * '=' characters.
+ * @param name the name of the environment variable
+ * @param value the value of the environment variable, or nullptr if not relevant
+ * @return ErrorCode denoting success or failure
+ */
+ErrorCode Validate(const std::string& name, const std::string* value)
+{
+  std::string message;
+
+  if (name.empty())
+  {
+    message = "Environment variable name may not be empty";
+  }
+  else if (value != nullptr && value->empty())
+  {
+    message = "Environment variable value may not be empty";
+  }
+  else if (name.find('=') != std::string::npos)
+  {
+    message = "Environment variable name may not contain '=' character";
+  }
+  else if (value != nullptr && value->find('=') != std::string::npos)
+  {
+    message = "Environment variable value may not contain '=' character";
+  }
+  else
+  {
+    return {};
+  }
+
+  if (value == nullptr)
+  {
+    return ErrorCode(message, {"name", ErrorCode(name)});
+  }
+  else
+  {
+    return ErrorCode(message, {{"name", ErrorCode(name)}, {"value", ErrorCode(*value)}});
+  }
+}
 }  // namespace
 
 /**
@@ -35,14 +79,10 @@ std::shared_mutex mutex;
  */
 ValueWithErrorCode<std::string> GetEnv(const std::string& name)
 {
-  if (name.empty())
+  const auto validate_ec = Validate(name, nullptr);
+  if (validate_ec.Failure())
   {
-    return {{}, ErrorCode("Environment variable name may not be empty", {"name", ErrorCode(name)})};
-  }
-
-  if (name.find('=') != std::string::npos)
-  {
-    return {{}, ErrorCode("Environment variable name may not contain '=' character", {"name", ErrorCode(name)})};
+    return {{}, validate_ec};
   }
 
   std::string env_str;
@@ -73,32 +113,10 @@ ValueWithErrorCode<std::string> GetEnv(const std::string& name)
  */
 ErrorCode SetEnv(const std::string& name, const std::string& value)
 {
-  if (name.empty())
+  const auto validate_ec = Validate(name, &value);
+  if (validate_ec.Failure())
   {
-    return {{},
-            ErrorCode("Environment variable name may not be empty",
-                      {{"name", ErrorCode(name)}, {"value", ErrorCode(value)}})};
-  }
-
-  if (value.empty())
-  {
-    return {{},
-            ErrorCode("Environment variable value may not be empty",
-                      {{"name", ErrorCode(name)}, {"value", ErrorCode(value)}})};
-  }
-
-  if (name.find('=') != std::string::npos)
-  {
-    return {{},
-            ErrorCode("Environment variable name may not contain '=' character",
-                      {{"name", ErrorCode(name)}, {"value", ErrorCode(value)}})};
-  }
-
-  if (value.find('=') != std::string::npos)
-  {
-    return {{},
-            ErrorCode("Environment variable value may not contain '=' character",
-                      {{"name", ErrorCode(name)}, {"value", ErrorCode(value)}})};
+    return {{}, validate_ec};
   }
 
   int success;
@@ -126,14 +144,10 @@ ErrorCode SetEnv(const std::string& name, const std::string& value)
  */
 ErrorCode UnsetEnv(const std::string& name)
 {
-  if (name.empty())
+  const auto validate_ec = Validate(name, nullptr);
+  if (validate_ec.Failure())
   {
-    return {{}, ErrorCode("Environment variable name may not be empty", {"name", ErrorCode(name)})};
-  }
-
-  if (name.find('=') != std::string::npos)
-  {
-    return {{}, ErrorCode("Environment variable name may not contain '=' character", {"name", ErrorCode(name)})};
+    return {{}, validate_ec};
   }
 
   int success;
