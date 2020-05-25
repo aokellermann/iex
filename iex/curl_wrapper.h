@@ -1,18 +1,7 @@
 /**
- * Copyright 2020 Antony Kellermann
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
- * documentation files (the "Software"), to deal in the Software without restriction, including without limitation the
- * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
- * permit persons to whom the Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all copies or substantial portions of the
- * Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
- * WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
- * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * @file curl_wrapper.h
+ * @author Antony Kellermann
+ * @copyright 2020 Antony Kellermann
  */
 
 #pragma once
@@ -25,16 +14,22 @@
 
 #include "iex/iex.h"
 
+/**
+ * Contains all declarations necessary for performing a HTTP GET by a client.
+ */
 namespace iex::curl
 {
 // region Url
 
 /**
- * Represents a Url that can be the subject of an HTTP GET
+ * Represents a Url that can be the subject of an HTTP GET.
  */
 class Url
 {
  public:
+  /**
+   * Represents a named Url parameter.
+   */
   using NamedParam = NamedPair<std::string>;
 
   Url() = delete;
@@ -81,19 +76,35 @@ class Url
   ErrorCode ec_;
 };
 
+/**
+ * Hasher struct to use for Urls.
+ *
+ * This is useful for associative containers, such as UrlMap and UrlSet.
+ */
 struct UrlHasher
 {
   std::size_t operator()(const Url& s) const { return std::hash<std::string>()(s.GetAsString()); }
 };
 
+/**
+ * Equality struct to use for Urls.
+ *
+ * This is useful for associative containers, such as UrlMap and UrlSet.
+ */
 struct UrlEquality
 {
-  size_t operator()(const Url& a, const Url& b) const noexcept { return a.GetAsString() == b.GetAsString(); }
+  std::size_t operator()(const Url& a, const Url& b) const noexcept { return a.GetAsString() == b.GetAsString(); }
 };
 
+/**
+ * Unordered map of Url objects using custom hasher UrlHasher and custom equality UrlEquality.
+ */
 template <typename T>
 using UrlMap = std::unordered_map<Url, T, UrlHasher, UrlEquality>;
 
+/**
+ * Unordered set of Url objects using custom hasher UrlHasher and custom equality UrlEquality.
+ */
 using UrlSet = std::unordered_set<Url, UrlHasher, UrlEquality>;
 
 // endregion
@@ -101,21 +112,28 @@ using UrlSet = std::unordered_set<Url, UrlHasher, UrlEquality>;
 // region Interface
 
 /**
- * Initializes all CURL components.
- *
- * This function must be called once at the beginning of the program before ANY other threads have been created.
- * See https://curl.haxx.se/libcurl/c/curl_global_init.html
- * @return
+ * @brief Initializes all CURL components.
+ * @details This function must be called once at the beginning of the program before ANY other threads have been
+ * created. This behavior is a dependency of cURL, not this library.
+ * @see https://curl.haxx.se/libcurl/c/curl_global_init.html
+ * @return ErrorCode denoting success or failure.
  */
 ErrorCode Init();
 
+/**
+ * Represents a JSON object.
+ */
 using Json = nlohmann::json;
 
+/**
+ * Represents an HTTP GET response: Json object containing response data, and ErrorCode denoting success or failure.
+ */
 using GetResponse = ValueWithErrorCode<Json>;
 
-template <typename T>
-using UrlMap = std::unordered_map<Url, T, UrlHasher, UrlEquality>;
-
+/**
+ * An unordered map of Url to their corresponding GetResponse objects. This is what is returned when querying multiple
+ * Urls at the same time.
+ */
 using GetMap = UrlMap<GetResponse>;
 
 /**
