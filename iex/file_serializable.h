@@ -28,12 +28,12 @@ enum Directory
   /**
    * $HOME/.iex
    */
-  Home,
+  HOME,
 
   /**
    * /tmp/iex
    */
-  Temp
+  TEMP
 };
 
 /**
@@ -44,12 +44,12 @@ enum Extension
   /**
    * Plain text: .txt
    */
-  Text,
+  TEXT,
 
   /**
    * JSON format: .json
    */
-  Json
+  JSON
 };
 
 /**
@@ -64,7 +64,7 @@ class FileIoBase
    * @param relative_path the relative path from directory to which the FileIOBase is associated with
    * @param directory Directory enum indicating absolute path to which relative_path is in
    */
-  explicit FileIoBase(const Path& relative_path, Directory directory = Home, Extension extension = Json);
+  explicit FileIoBase(const Path& relative_path, Directory directory = HOME, Extension extension = JSON);
 
  protected:
   /**

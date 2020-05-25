@@ -35,7 +35,7 @@ ErrorCode CreateDirectory(const Path &path)
     return ErrorCode("Path is a file", {"path", ErrorCode(path.string())});
   }
 
-  bool success = false;
+  bool success;
   try
   {
     success = fs::create_directory(path);
@@ -182,14 +182,14 @@ Path FileIoBase::GetDirectoryPath(Directory directory)
 {
   switch (directory)
   {
-    case Directory::Home:
+    case Directory::HOME:
     {
       const auto res = env::GetEnv("HOME");
       ec_ = res.second;
       return res.first / Path(".iex");
     }
 
-    case Directory::Temp:
+    case Directory::TEMP:
     {
       return "/tmp/iex";
     }
@@ -204,11 +204,11 @@ std::string FileIoBase::GetExtensionString(Extension extension)
 {
   switch (extension)
   {
-    case Extension::Text:
+    case Extension::TEXT:
     {
       return ".txt";
     }
-    case Extension::Json:
+    case Extension::JSON:
     {
       return ".json";
     }
