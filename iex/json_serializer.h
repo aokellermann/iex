@@ -8,6 +8,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include "iex/iex.h"
+
 /**
  * Contains abstract interfaces used for converting to and from JSON format.
  */

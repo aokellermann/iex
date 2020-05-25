@@ -14,7 +14,6 @@
 
 namespace iex::env
 {
-
 namespace
 {
 /**
@@ -60,10 +59,8 @@ ErrorCode Validate(const std::string& name, const std::string* value)
   {
     return ErrorCode(message, {"name", ErrorCode(name)});
   }
-  else
-  {
-    return ErrorCode(message, {{"name", ErrorCode(name)}, {"value", ErrorCode(*value)}});
-  }
+
+  return ErrorCode(message, {{"name", ErrorCode(name)}, {"value", ErrorCode(*value)}});
 }
 }  // namespace
 
@@ -102,7 +99,7 @@ ErrorCode SetEnv(const std::string& name, const std::string& value)
     return {{}, validate_ec};
   }
 
-  int success;
+  bool success;
 
   {
     std::unique_lock lock(mutex);
@@ -128,7 +125,7 @@ ErrorCode UnsetEnv(const std::string& name)
     return {{}, validate_ec};
   }
 
-  int success;
+  bool success;
 
   {
     std::unique_lock lock(mutex);
@@ -145,4 +142,4 @@ ErrorCode UnsetEnv(const std::string& name)
   return {};
 }
 
-}
+}  // namespace iex::env
