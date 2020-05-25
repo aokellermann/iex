@@ -94,7 +94,7 @@ struct UrlHasher
  */
 struct UrlEquality
 {
-  std::size_t operator()(const Url& a, const Url& b) const noexcept { return a.GetAsString() == b.GetAsString(); }
+  bool operator()(const Url& a, const Url& b) const noexcept { return a.GetAsString() == b.GetAsString(); }
 };
 
 /**

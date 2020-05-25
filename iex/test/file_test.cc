@@ -29,7 +29,7 @@ struct FileImpl : file::FileIoBase
 TEST(File, ReadWrite)
 {
   std::string file_name = std::to_string(std::time(nullptr)) + "test";
-  FileImpl impl(file_name, file::Directory::Temp, file::Extension::Text);
+  FileImpl impl(file_name, file::Directory::TEMP, file::Extension::TEXT);
   EXPECT_EQ(impl.Valid(), iex::ErrorCode());
 
   std::string test_text("Testing text:\nTesting");

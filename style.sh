@@ -1,10 +1,16 @@
 #!/bin/bash
 
 # Get all .cc and .h files in directory iex.
-files=$(find iex -type f \( -iname \*.cc -o -iname \*.h \))
+files=$(find iex -maxdepth 1 -type f \( -iname \*.cc -o -iname \*.h \))
+
+compile_commands=$(find -type f -name compile_commands.json | head -n 1)
+if [ -z $compile_commands ]; then
+  echo "compile_commands.json file not found (run cmake to generate)"
+  exit 1
+fi
 
 # Only print if errors are encountered.
-cpplint --quiet $files
+clang-tidy -p $compile_commands --quiet $files
 lint=$?
 
 # Only print if errors are encountered and treat all nonconformities as errors.

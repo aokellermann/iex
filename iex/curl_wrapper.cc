@@ -187,12 +187,12 @@ class MultiHandleWrapper
     // Try to find handles with the same Url first.
     for (const auto& url : url_set)
     {
-      if (available_handles.empty())
+      if (available_handles_.empty())
       {
         break;
       }
 
-      auto found_url = available_handles.extract(url);
+      auto found_url = available_handles_.extract(url);
       if (!found_url.empty())
       {
         handles_in_use_.insert(std::move(found_url));
@@ -205,11 +205,11 @@ class MultiHandleWrapper
     auto current_url_iter = url_set.begin();
     for (; i < num_handles_still_needed && current_url_iter != url_set.end(); ++i, ++current_url_iter)
     {
-      if (!available_handles.empty())
+      if (!available_handles_.empty())
       {
         // Reuse handles here
         // Extract, and change Url.
-        auto extracted_node = available_handles.extract(available_handles.begin());
+        auto extracted_node = available_handles_.extract(available_handles_.begin());
         extracted_node.key() = *current_url_iter;
         extracted_node.mapped().AssignUrl(*current_url_iter);
         handles_in_use_.insert(std::move(extracted_node));
@@ -233,12 +233,12 @@ class MultiHandleWrapper
   void ClearUsedHandles()
   {
     // Move all to available.
-    available_handles.merge(handles_in_use_);
+    available_handles_.merge(handles_in_use_);
   }
 
   MultiHandle multi_handle_;
   UrlMap<EasyHandleDataPair> handles_in_use_;
-  UrlMap<EasyHandleDataPair> available_handles;
+  UrlMap<EasyHandleDataPair> available_handles_;
 };
 
 /**
