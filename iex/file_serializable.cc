@@ -119,6 +119,11 @@ ErrorCode WriteStream(const Path &path, const std::string &contents, std::ostrea
  */
 ValueWithErrorCode<std::string> ReadStream(const std::filesystem::path &path, std::istream &stream)
 {
+  if (!fs::exists(path))
+  {
+    return {};
+  }
+
   const auto size = fs::file_size(path);
   std::string data(size, '\0');
   try
