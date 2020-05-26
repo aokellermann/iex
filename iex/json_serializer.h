@@ -29,10 +29,11 @@ class JsonBase
 struct JsonSerializable : virtual JsonBase
 {
   /**
-   * Creates and returns a Json object representing this object. This function must be overridden.
-   * @return Json
+   * This function is intended to be overridden such that it modifies JsonBase::repr_ with the type's intended Json
+   * representation. The default implementation of this function does nothing.
+   * @return ErrorCode denoting success or failure
    */
-  virtual ErrorCode Serialize() = 0;
+  virtual ErrorCode Serialize() { return {}; }
 };
 
 /**
@@ -41,10 +42,11 @@ struct JsonSerializable : virtual JsonBase
 struct JsonDeserializable : virtual JsonBase
 {
   /**
-   * Stores data from input_json in this object. This function must be overridden.
-   * @return ErrorCode if failure
+   * This function is intended to be overridden such that it reads JsonBase::repr_ and populates the derived class with
+   * the contained data. The default implementation of this function does nothing.
+   * @return ErrorCode denoting success or failure
    */
-  virtual ErrorCode Deserialize() = 0;
+  virtual ErrorCode Deserialize() { return {}; }
 };
 
 /**
