@@ -72,7 +72,7 @@ class FileIoBase
    * @param contents data to write
    * @return ErrorCode indicating success or failure
    */
-  ErrorCode WriteFile(const std::string& contents) const;
+  [[nodiscard]] ErrorCode WriteFile(const std::string& contents) const;
 
   /**
    * Reads contents of associated file.
