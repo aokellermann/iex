@@ -352,22 +352,22 @@ ValueWithErrorCode<std::string> Url::UrlEncode(const std::string& plaintext_str)
   return GetEscapedUrlStringFromPlaintextString(plaintext_str);
 }
 
-void Url::AppendParam(const std::string& name, const std::string& raw_value, bool first)
+void Url::AppendParam(const Param& param, bool first)
 {
-  if (name.empty() || raw_value.empty())
+  if (param.name.empty() || param.value.empty())
   {
-    ec_ = ErrorCode(name.empty() ? "name is empty" : "value is empty");
+    ec_ = ErrorCode(param.name.empty() ? "name is empty" : "value is empty");
     return;
   }
 
-  const auto pair = UrlEncode(raw_value);
+  const auto pair = UrlEncode(param.value);
   if (pair.second.Failure())
   {
     ec_ = pair.second;
     return;
   }
 
-  impl_ += (first ? "?" : "&") + name + "=" + pair.first;
+  impl_ += (first ? "?" : "&") + param.name + "=" + pair.first;
 }
 
 // endregion Url

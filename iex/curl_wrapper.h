@@ -31,14 +31,48 @@ class Url
   /**
    * Represents a named Url parameter.
    */
-  using NamedParam = NamedPair<std::string>;
+  struct Param
+  {
+    using Name = std::string;
+    using Value = std::string;
+
+    struct Hasher
+    {
+      std::size_t operator()(const Param& param) const { return std::hash<std::string>()(param.name); }
+    };
+
+    template <typename InputIt>
+    Param(Name name, InputIt comma_separated_params_begin, InputIt comma_separated_params_end)
+    : name(std::move(name))
+    {
+      for (auto iterator = comma_separated_params_begin; iterator != comma_separated_params_end; ++iterator)
+      {
+        value += *iterator + ',';
+      }
+      if (comma_separated_params_begin != comma_separated_params_end)
+      {
+        value.pop_back();
+      }
+    }
+
+    Param(Name name, std::initializer_list<Value> values)
+        : Param(std::move(name), values.begin(), values.end())
+    {}
+
+    bool operator==(const Param& other) const { return name == other.name && value == other.value; }
+
+    Name name;
+    Value value;
+  };
+
+  using Params = std::unordered_set<Param, Param::Hasher>;
 
   Url() = delete;
 
   explicit Url(std::string base_url) : impl_(std::move(base_url)), ec_(impl_.empty() ? "Empty URL" : "") {}
 
-  Url(const std::string& base_url, std::initializer_list<NamedParam> named_params)
-      : Url(base_url, named_params.begin(), named_params.end())
+  Url(const std::string& base_url, Params params)
+      : Url(base_url, params.begin(), params.end())
   {
   }
 
@@ -53,7 +87,7 @@ class Url
 
     for (InputIt head = params_begin; head != params_end; ++head)
     {
-      AppendParam(head->first, head->second, head == params_begin);
+      AppendParam(*head, head == params_begin);
       if (ec_.Failure())
       {
         impl_.clear();
@@ -71,7 +105,7 @@ class Url
  private:
   static ValueWithErrorCode<std::string> UrlEncode(const std::string& plaintext_str);
 
-  void AppendParam(const std::string& name, const std::string& raw_value, bool first);
+  void AppendParam(const Param& param, bool first);
 
   std::string impl_;
   ErrorCode ec_;
