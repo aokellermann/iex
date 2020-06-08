@@ -29,7 +29,9 @@ TEST(Key, Environment)
   {
     auto response = key.Get(static_cast<Keychain::KeyType>(i));
     ASSERT_TRUE(response.second.Success());
-    EXPECT_EQ(response.first, std::getenv(kKeyNameArray[i]));
+    const char* env = std::getenv(kKeyNameArray[i]);
+    ASSERT_NE(env, nullptr) << "You must have all API keys set as env variables to run this test.";
+    EXPECT_EQ(response.first, env);
   }
 }
 
