@@ -6,7 +6,7 @@
 
 #include "iex/api/system_status.h"
 
-namespace iex::api::system_status
+namespace iex::api
 {
 ErrorCode SystemStatus::Deserialize(const Json& input_json)
 {
@@ -14,16 +14,13 @@ ErrorCode SystemStatus::Deserialize(const Json& input_json)
   {
     input_json.at("status").get_to(status_);
     input_json.at("version").get_to(version_);
-    timestamp_ = Timestamp(input_json, "time");
+    timestamp_ = Timestamp(input_json.at("time").get<uint64_t>());
+    input_json.at("currentMonthAPICalls").get_to(current_month_api_calls_);
+    return {};
   }
   catch (const std::exception& e)
   {
     return ErrorCode("SystemStatus::Deserialize() failed", {"exception", ErrorCode(e.what())});
   }
-
-  return {};
 }
-
-NamedPair<std::string> SystemStatus::GetNamedOptions(const Endpoint::OptionSet& /*options*/) const { return {}; }
-
-}  // namespace iex::api::system_status
+}  // namespace iex::api

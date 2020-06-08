@@ -9,21 +9,22 @@
 #include <chrono>
 #include <cstdint>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
 
-#include "iex/curl_wrapper.h"
+#include "iex/iex.h"
 #include "iex/json_serializer.h"
+#include "iex/api/forward.h"
 
 namespace iex::api
 {
 // region Common Types
 
 using Symbol = std::string;
-
 using SymbolSet = std::unordered_set<Symbol>;
 
 template <typename T>
@@ -31,77 +32,137 @@ using SymbolMap = std::unordered_map<Symbol, T>;
 
 using Json = json::Json;
 
-struct Timestamp : std::chrono::milliseconds
-{
-  using std::chrono::milliseconds::milliseconds;
+/**
+ * Represents a timestamp in milliseconds.
+ *
+ * IEX timestamps are given in unix time with milliseconds.
+ */
+using Timestamp = std::chrono::milliseconds;
 
-  Timestamp(const Json& json, const std::string& var_name)
-      : std::chrono::milliseconds(json.at(var_name).get<uint64_t>())
-  {
-  }
-};
-
+/**
+ * @see https://iexcloud.io/docs/api/#api-versioning
+ */
 enum Version
 {
-  STABLE = 0,
-  LATEST,
+  STABLE,
+  // LATEST,
   V1,
   BETA
+};
+
+/**
+ * @see https://iexcloud.io/docs/api/#testing-sandbox
+ */
+enum DataType
+{
+  AUTHENTIC,
+  SANDBOX
 };
 
 // endregion Common Types
 
 // region Endpoint
 
-struct Endpoint;
-
 template <typename E = Endpoint>
-struct EndpointPtr : std::shared_ptr<const E>
-{
-  static_assert(std::is_base_of<Endpoint, E>::value, "E must derive from Endpoint");
-};
+using EndpointPtr = std::shared_ptr<const E>;
 
 /**
  * Base class for all endpoints.
  */
-struct Endpoint : virtual json::JsonDeserializable
+class Endpoint : virtual json::JsonDeserializable
 {
+ public:
+  // region Types
+
+  /**
+   * The name of an endpoint that the API accepts as a valid string.
+   */
   using Name = std::string;
 
-  static constexpr int kInvalid = -1;
-
+  /**
+   * Enum representing the endpoint.
+   */
   enum Type
   {
-    NONE = kInvalid,
+    /**
+     * @see https://iexcloud.io/docs/api/#api-system-metadata
+     */
     SYSTEM_STATUS
   };
+
+  /**
+   * A unique collection of types.
+   */
   using TypeSet = std::unordered_set<Type>;
 
-  using Option = int;
-  using OptionSet = std::unordered_set<Option>;
+  /**
+   * A map of Endpoint::Type to an arbitrary type.
+   */
+  template <typename T>
+  using TypeMap = std::unordered_map<Type, T>;
+
+  /**
+   * Abstract interface used by Option to generate Url Params.
+   */
+  struct OptionBase
+  {
+    virtual ~OptionBase() = 0;
+
+    [[nodiscard]] virtual std::string GetName() const = 0;
+
+    [[nodiscard]] virtual std::string GetValueAsString() const = 0;
+  };
+
+  template <typename T>
+  class Option : OptionBase
+  {
+   public:
+    explicit Option(NamedPair<T> named_pair) : pair_(std::move(named_pair)) {}
+
+    Option(std::string name, T value) : pair_(std::make_pair(std::move(name), std::move(value))) {}
+
+    ~Option() override = default;
+
+    [[nodiscard]] std::string GetName() const override { return pair_.first; }
+
+    [[nodiscard]] std::string GetValueAsString() const override
+    {
+      std::stringstream sstr;
+      sstr << pair_.second;
+      return sstr.str();
+    }
+
+   private:
+    const NamedPair<T> pair_;
+  };
+
+  template <typename... Ts>
+  using OptionSet = std::tuple<Option<Ts>...>;
+
+  using Options = std::vector<std::shared_ptr<OptionBase>>;
 
   template <Type>
   struct Map;
 
+  template <>
+  struct Map<Endpoint::Type::SYSTEM_STATUS>
+  {
+    using type = const SystemStatus;
+  };
+
   template <Type T>
   using Typename = typename Endpoint::Map<T>::type;
 
-  [[nodiscard]] virtual std::string GetName() const noexcept = 0;
+  // endregion Types
 
-  [[nodiscard]] virtual NamedPair<std::string> GetNamedOptions(const OptionSet& options) const = 0;
+  inline explicit Endpoint(Name name) : name_(std::move(name)) {}
 
-  template <typename E>
-  static ValueWithErrorCode<std::shared_ptr<const E>> Factory(const Json& input_json)
-  {
-    try
-    {
-      return {std::make_shared<const E>(input_json), {}};
-    }
-    catch (const std::exception& e)
-    {
-      return {nullptr, ErrorCode("SystemStatus::Deserialize() failed", {"exception", ErrorCode(e.what())})};
-    }
-  }
+  virtual ~Endpoint() = default;
+
+  [[nodiscard]] inline std::string GetName() const noexcept { return name_; }
+
+ private:
+  const Name name_;
 };
 
 // endregion Endpoint
@@ -110,8 +171,9 @@ struct Endpoint : virtual json::JsonDeserializable
 
 struct RequestOptions
 {
-  std::unordered_set<Endpoint::Option> options;
+  Endpoint::Options options;
   Version version = Version::STABLE;
+  DataType data_type = DataType::AUTHENTIC;
 };
 
 struct Request
@@ -119,7 +181,7 @@ struct Request
   Endpoint::Type type;
   RequestOptions options;
 };
-using Requests = std::unordered_map<Endpoint::Type, RequestOptions>;
+using Requests = Endpoint::TypeMap<RequestOptions>;
 
 struct SymbolRequest : Request
 {
@@ -128,9 +190,8 @@ struct SymbolRequest : Request
   {
   }
 
-  SymbolRequest(Symbol symbol, Endpoint::Type type, std::unordered_set<Endpoint::Option> opts = {},
-                Version version = {})
-      : SymbolRequest(std::move(symbol), type, {std::move(opts), version})
+  SymbolRequest(const Symbol& symbol, Endpoint::Type type, const Endpoint::Options& opts = {}, Version version = {})
+      : SymbolRequest(symbol, type, RequestOptions{opts, version})
   {
   }
 
@@ -158,6 +219,13 @@ class Response
 
 class Responses
 {
+ public:
+  template <Endpoint::Type T>
+  void Put(EndpointPtr<> ptr)
+  {
+    endpoint_map_.emplace(T, ptr);
+  }
+
   template <Endpoint::Type T>
   [[nodiscard]] EndpointPtr<Endpoint::Typename<T>> Get() const
   {
@@ -166,7 +234,7 @@ class Responses
   }
 
  private:
-  std::unordered_map<Endpoint::Type, EndpointPtr<>> endpoint_map_;
+  Endpoint::TypeMap<EndpointPtr<>> endpoint_map_;
 };
 class SymbolResponses
 {
@@ -197,14 +265,22 @@ inline ValueWithErrorCode<Responses> Get(const Requests& requests)
 {
   const AggregatedRequests aggregated_requests{requests, {}};
   auto response = Get(aggregated_requests);
-  return {std::move(response.first.responses), {"Get(Requests) failed", std::move(response.second)}};
+  if (response.second.Failure())
+  {
+    return {{}, {"Get(Requests) failed", std::move(response.second)}};
+  }
+  return {std::move(response.first.responses), {}};
 }
 
 inline ValueWithErrorCode<SymbolResponses> Get(const SymbolRequests& requests)
 {
   const AggregatedRequests aggregated_requests{{}, requests};
   auto response = Get(aggregated_requests);
-  return {std::move(response.first.symbol_responses), {"Get(SymbolRequests) failed", std::move(response.second)}};
+  if (response.second.Failure())
+  {
+    return {{}, {"Get(SymbolRequests) failed", std::move(response.second)}};
+  }
+  return {std::move(response.first.symbol_responses), {}};
 }
 
 inline ValueWithErrorCode<Responses> Get(const Request& request)

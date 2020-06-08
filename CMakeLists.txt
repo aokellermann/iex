@@ -47,6 +47,9 @@ message(STATUS "IEX_BUILD_TESTING: ${IEX_BUILD_TESTING}")
 # Set library headers and sources.
 set(iex_headers
         iex.h
+        api.h
+        api/forward.h
+        api/system_status.h
         )
 set(iex_sources
         iex.cc
