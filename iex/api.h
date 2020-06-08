@@ -141,18 +141,6 @@ class Endpoint : virtual json::JsonDeserializable
 
   using Options = std::vector<std::shared_ptr<OptionBase>>;
 
-  template <Type>
-  struct Map;
-
-  template <>
-  struct Map<Endpoint::Type::SYSTEM_STATUS>
-  {
-    using type = const SystemStatus;
-  };
-
-  template <Type T>
-  using Typename = typename Endpoint::Map<T>::type;
-
   // endregion Types
 
   inline explicit Endpoint(Name name) : name_(std::move(name)) {}
@@ -164,6 +152,18 @@ class Endpoint : virtual json::JsonDeserializable
  private:
   const Name name_;
 };
+
+template <Endpoint::Type>
+struct EndpointMap;
+
+template <>
+struct EndpointMap<Endpoint::Type::SYSTEM_STATUS>
+{
+  using type = const SystemStatus;
+};
+
+template <Endpoint::Type T>
+using EndpointTypename = typename EndpointMap<T>::type;
 
 // endregion Endpoint
 
@@ -185,13 +185,13 @@ using Requests = Endpoint::TypeMap<RequestOptions>;
 
 struct SymbolRequest : Request
 {
-  SymbolRequest(Symbol symbol, Endpoint::Type type, RequestOptions request_options)
-      : Request{type, std::move(request_options)}, symbol(std::move(symbol))
+  SymbolRequest(Symbol sym, Endpoint::Type t, RequestOptions request_options)
+      : Request{t, std::move(request_options)}, symbol(std::move(sym))
   {
   }
 
-  SymbolRequest(const Symbol& symbol, Endpoint::Type type, const Endpoint::Options& opts = {}, Version version = {})
-      : SymbolRequest(symbol, type, RequestOptions{opts, version})
+  SymbolRequest(const Symbol& sym, Endpoint::Type t, const Endpoint::Options& opts = {}, Version vers = {})
+      : SymbolRequest(sym, t, RequestOptions{opts, vers})
   {
   }
 
@@ -207,10 +207,11 @@ struct AggregatedRequests
 
 class Response
 {
+ public:
   template <Endpoint::Type T>
-  [[nodiscard]] EndpointPtr<Endpoint::Typename<T>> Get() const noexcept
+  [[nodiscard]] EndpointPtr<EndpointTypename<T>> Get() const noexcept
   {
-    return std::dynamic_pointer_cast<Endpoint::Typename<T>>(endpoint_);
+    return std::dynamic_pointer_cast<EndpointTypename<T>>(endpoint_);
   }
 
  private:
@@ -227,10 +228,10 @@ class Responses
   }
 
   template <Endpoint::Type T>
-  [[nodiscard]] EndpointPtr<Endpoint::Typename<T>> Get() const
+  [[nodiscard]] EndpointPtr<EndpointTypename<T>> Get() const
   {
     const auto iter = endpoint_map_.find(T);
-    return iter != endpoint_map_.end() ? std::dynamic_pointer_cast<Endpoint::Typename<T>>(iter->second) : nullptr;
+    return iter != endpoint_map_.end() ? std::dynamic_pointer_cast<EndpointTypename<T>>(iter->second) : nullptr;
   }
 
  private:
@@ -294,15 +295,15 @@ inline ValueWithErrorCode<SymbolResponses> Get(const SymbolRequest& request)
 }
 
 template <Endpoint::Type T>
-inline ValueWithErrorCode<EndpointPtr<Endpoint::Typename<T>>> Get(const RequestOptions& request_options = {})
+inline ValueWithErrorCode<EndpointPtr<EndpointTypename<T>>> Get(const RequestOptions& request_options = {})
 {
   const auto response = Get(Request{T, request_options});
   return {response.first.Get<T>(), std::move(response.second)};
 }
 
 template <Endpoint::Type T>
-inline ValueWithErrorCode<EndpointPtr<Endpoint::Typename<T>>> Get(const Symbol& symbol,
-                                                                  const RequestOptions& request_options = {})
+inline ValueWithErrorCode<EndpointPtr<EndpointTypename<T>>> Get(const Symbol& symbol,
+                                                                const RequestOptions& request_options = {})
 {
   const auto response = Get(SymbolRequest{symbol, T, request_options});
   const auto* const ptr = response.first.Get(symbol);

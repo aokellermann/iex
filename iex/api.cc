@@ -108,6 +108,9 @@ ValueWithErrorCode<AggregatedResponses> Get(const AggregatedRequests& requests)
 
     switch (iter->second)
     {
+      default:
+        break;
+
       case Endpoint::Type::SYSTEM_STATUS:
       {
         auto new_endpoint_ptr = EndpointFactory<SystemStatus>(json.first);
