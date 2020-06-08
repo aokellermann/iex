@@ -30,7 +30,9 @@ class Keychain : private file::FileIoBase, private json::JsonBidirectionalSerial
     NUM_KEYS
   };
 
-  struct EnvironmentFlag{};
+  struct EnvironmentFlag
+  {
+  };
 
   explicit Keychain(const EnvironmentFlag& environment_flag);
 

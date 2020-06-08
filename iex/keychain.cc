@@ -151,8 +151,8 @@ ValueWithErrorCode<Keychain::Key> Keychain::Get(Keychain::KeyType type) const
   return {keys_[type], {}};
 }
 
-bool Keychain::Populated() const noexcept {
-
+bool Keychain::Populated() const noexcept
+{
   for (int i = 0; i < NUM_KEYS; ++i)
   {
     if (Validate(static_cast<KeyType>(i), keys_[i]).Failure())

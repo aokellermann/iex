@@ -4,6 +4,8 @@
  * @copyright 2020 Antony Kellermann
  */
 
+#include "iex/keychain.h"
+
 #include <gtest/gtest.h>
 
 #include <filesystem>
@@ -11,7 +13,6 @@
 
 #include "iex/file_serializable.h"
 #include "iex/json_serializer.h"
-#include "iex/keychain.h"
 
 using Keychain = iex::api::key::Keychain;
 
