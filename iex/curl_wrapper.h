@@ -42,7 +42,8 @@ class Url
     };
 
     template <typename InputIt>
-    Param(Name name, InputIt comma_separated_params_begin, InputIt comma_separated_params_end) : name(std::move(name))
+    Param(Name param_name, InputIt comma_separated_params_begin, InputIt comma_separated_params_end)
+        : name(std::move(param_name))
     {
       for (auto iterator = comma_separated_params_begin; iterator != comma_separated_params_end; ++iterator)
       {
@@ -54,9 +55,12 @@ class Url
       }
     }
 
-    Param(Name name, std::initializer_list<Value> values) : Param(std::move(name), values.begin(), values.end()) {}
+    Param(Name param_name, std::initializer_list<Value> values)
+        : Param(std::move(param_name), values.begin(), values.end())
+    {
+    }
 
-    Param(Name name, Value value) : name(std::move(name)), value(std::move(value)) {}
+    Param(Name param_name, Value param_value) : name(std::move(param_name)), value(std::move(param_value)) {}
 
     bool operator==(const Param& other) const { return name == other.name && value == other.value; }
 
