@@ -42,8 +42,7 @@ class Url
     };
 
     template <typename InputIt>
-    Param(Name name, InputIt comma_separated_params_begin, InputIt comma_separated_params_end)
-    : name(std::move(name))
+    Param(Name name, InputIt comma_separated_params_begin, InputIt comma_separated_params_end) : name(std::move(name))
     {
       for (auto iterator = comma_separated_params_begin; iterator != comma_separated_params_end; ++iterator)
       {
@@ -55,13 +54,9 @@ class Url
       }
     }
 
-    Param(Name name, std::initializer_list<Value> values)
-        : Param(std::move(name), values.begin(), values.end())
-    {}
+    Param(Name name, std::initializer_list<Value> values) : Param(std::move(name), values.begin(), values.end()) {}
 
-    Param(Name name, Value value)
-        : name(std::move(name)), value(std::move(value))
-    {}
+    Param(Name name, Value value) : name(std::move(name)), value(std::move(value)) {}
 
     bool operator==(const Param& other) const { return name == other.name && value == other.value; }
 
@@ -75,10 +70,7 @@ class Url
 
   explicit Url(std::string base_url) : impl_(std::move(base_url)), ec_(impl_.empty() ? "Empty URL" : "") {}
 
-  Url(const std::string& base_url, Params params)
-      : Url(base_url, params.begin(), params.end())
-  {
-  }
+  Url(const std::string& base_url, Params params) : Url(base_url, params.begin(), params.end()) {}
 
   template <class InputIt>
   Url(const std::string& base_url, InputIt params_begin, InputIt params_end) : Url(base_url)

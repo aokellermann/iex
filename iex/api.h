@@ -16,9 +16,9 @@
 #include <unordered_set>
 #include <utility>
 
+#include "iex/api/forward.h"
 #include "iex/iex.h"
 #include "iex/json_serializer.h"
-#include "iex/api/forward.h"
 
 namespace iex::api
 {
