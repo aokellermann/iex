@@ -13,19 +13,19 @@
 
 namespace curl = iex::curl;
 
-const std::initializer_list<curl::Url::NamedParam> empty_params = {};
-const std::initializer_list<curl::Url::NamedParam> invalid_name = {{"foo1", "bar1"}, {"", "bar2"}};
-const std::initializer_list<curl::Url::NamedParam> invalid_value = {{"foo1", "bar1"}, {"foo2", ""}};
-const std::initializer_list<curl::Url::NamedParam> valid_params = {{"foo1", "bar1"}, {"foo2", "bar2"}};
-const std::initializer_list<curl::Url::NamedParam> valid_params_2 = {{"foo3", "bar3"}, {"foo4", "bar4"}};
-const std::initializer_list<curl::Url::NamedParam> encode_params = {{"foo1", "bar1"}, {"foo2", "bar+"}};
+const std::initializer_list<curl::Url::Param> empty_params = {};
+const std::initializer_list<curl::Url::Param> invalid_name = {{"foo1", "bar1"}, {"", "bar2"}};
+const std::initializer_list<curl::Url::Param> invalid_value = {{"foo1", "bar1"}, {"foo2", ""}};
+const std::initializer_list<curl::Url::Param> valid_params = {{"foo1", "bar1"}, {"foo2", "bar2"}};
+const std::initializer_list<curl::Url::Param> valid_params_2 = {{"foo3", "bar3"}, {"foo4", "bar4"}};
+const std::initializer_list<curl::Url::Param> encode_params = {{"foo1", "bar1"}, {"foo2", "bar+"}};
 
 const char* postman_echo_get_base = "https://postman-echo.com/get";
 
 struct UrlInitParams
 {
   const char* base;
-  const std::initializer_list<curl::Url::NamedParam>* params;
+  const std::initializer_list<curl::Url::Param>* params;
   bool valid;
   const char* encoded_url;
 };

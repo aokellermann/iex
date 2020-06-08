@@ -59,6 +59,10 @@ class Url
         : Param(std::move(name), values.begin(), values.end())
     {}
 
+    Param(Name name, Value value)
+        : name(std::move(name)), value(std::move(value))
+    {}
+
     bool operator==(const Param& other) const { return name == other.name && value == other.value; }
 
     Name name;
