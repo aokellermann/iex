@@ -78,7 +78,7 @@ class ErrorCode : public std::string
 
   // region Helpers
 
-  friend void PrintTo(const ErrorCode& bar, std::ostream* os) { *os << bar; }
+  friend void PrintTo(const ErrorCode& ec, std::ostream* os) { *os << ec; }
 
   // endregion Helpers
 };

@@ -1,5 +1,5 @@
 /**
- * @file api_key.cc
+ * @file keychain.cc
  * @author Antony Kellermann
  * @copyright 2020 Antony Kellermann
  */
@@ -15,43 +15,47 @@ namespace iex::api::key
 {
 namespace
 {
-constexpr const char* kKeyNameArray[Keychain::NUM_KEYS]{"IEX_PUBLIC_KEY", "IEX_SECRET_KEY", "IEX_SANDBOX_PUBLIC_KEY",
-                                                        "IEX_SANDBOX_SECRET_KEY"};
+constexpr const char* kKeyNameMap[Keychain::NUM_KEYS]{"IEX_PUBLIC_KEY", "IEX_SECRET_KEY", "IEX_SANDBOX_PUBLIC_KEY",
+                                                      "IEX_SANDBOX_SECRET_KEY"};
 
-constexpr const std::size_t kKeySizes[Keychain::NUM_KEYS]{35, 35, 36, 36};
+constexpr const std::size_t kKeySizesMap[Keychain::NUM_KEYS]{35, 35, 36, 36};
 
-constexpr const char* kKeyPrefixes[Keychain::NUM_KEYS]{"pk_", "sk_", "Tpk_", "Tsk_"};
+constexpr const char* kKeyPrefixesMap[Keychain::NUM_KEYS]{"pk_", "sk_", "Tpk_", "Tsk_"};
 
-constexpr const std::size_t kPrefixSizes[]{3, 3, 4, 4};
+constexpr const std::size_t kPrefixSizesMap[Keychain::NUM_KEYS]{3, 3, 4, 4};
 
-ErrorCode Validate(Keychain::KeyType type, const Keychain::Key& key)
+ErrorCode Validate(const Keychain::KeyType type, const Keychain::Key& key)
 {
   const auto actual_size = key.size();
-  const auto expected_size = kKeySizes[type];
+  const auto expected_size = kKeySizesMap[type];
   if (actual_size != expected_size)
   {
     return ErrorCode{"Invalid key length",
                      {{"actual", ErrorCode(std::to_string(actual_size))},
                       {"expected", ErrorCode(std::to_string(expected_size))},
+                      {"type", ErrorCode(kKeyNameMap[type])},
                       {"key", ErrorCode(key)}}};
   }
 
-  const auto actual_prefix = key.substr(0, kPrefixSizes[type]);
-  const auto* const expected_prefix = kKeyPrefixes[type];
+  const auto actual_prefix = key.substr(0, kPrefixSizesMap[type]);
+  const auto* const expected_prefix = kKeyPrefixesMap[type];
   if (actual_prefix != expected_prefix)
   {
-    return ErrorCode{
-        "Invalid key prefix",
-        {{"actual", ErrorCode(actual_prefix)}, {"expected", ErrorCode(expected_prefix)}, {"key", ErrorCode(key)}}};
+    return ErrorCode{"Invalid key prefix",
+                     {{"actual", ErrorCode(actual_prefix)},
+                      {"expected", ErrorCode(expected_prefix)},
+                      {"type", ErrorCode(kKeyNameMap[type])},
+                      {"key", ErrorCode(key)}}};
   }
 
-  for (auto c = key.begin() + kPrefixSizes[type]; c != key.end(); ++c)
+  for (auto c = key.begin() + kPrefixSizesMap[type]; c != key.end(); ++c)
   {
     if (!std::isxdigit(*c))
     {
       return ErrorCode{"Invalid key character",
                        {{"actual", ErrorCode({*c})},
                         {"expected", ErrorCode("element of [0123456789abcdefABCDEF]")},
+                        {"type", ErrorCode(kKeyNameMap[type])},
                         {"key", ErrorCode(key)}}};
     }
   }
@@ -67,8 +71,8 @@ Keychain::Keychain(const EnvironmentFlag&)
 {
   for (int i = 0; i < NUM_KEYS; ++i)
   {
-    auto pair = env::GetEnv(kKeyNameArray[i]);
-    if (pair.second.Failure())
+    const auto pair = env::GetEnv(kKeyNameMap[i]);
+    if (pair.second.Failure())  // keys have not been set yet
     {
       return;
     }
@@ -90,12 +94,9 @@ Keychain::Keychain(file::Directory directory)
   {
     ec_ = {"Keychain::Keychain() failed", std::move(response.second)};
   }
-  else
+  else if (!response.first.empty())
   {
-    if (!response.first.empty())
-    {
-      ec_ = Deserialize(json::Json::parse(response.first));
-    }
+    ec_ = Deserialize(json::Json::parse(response.first));
   }
 }
 
@@ -116,7 +117,7 @@ ErrorCode Keychain::Set(KeyType type, const Key& key, bool write)
   {
     if (key_location_ == ENVIRONMENT)
     {
-      auto ec = env::SetEnv(kKeyNameArray[type], key);
+      auto ec = env::SetEnv(kKeyNameMap[type], key);
       if (ec.Failure())
       {
         return {"Keychain::Set() failed", std::move(ec)};
@@ -141,11 +142,12 @@ ErrorCode Keychain::Set(KeyType type, const Key& key, bool write)
   keys_[type] = std::move(key);
   return {};
 }
+
 ValueWithErrorCode<Keychain::Key> Keychain::Get(Keychain::KeyType type) const
 {
   if (ec_.Failure())
   {
-    return {"Keychain::Get() failed", ec_};
+    return {{}, {"Keychain::Get() failed", ec_}};
   }
 
   return {keys_[type], {}};
@@ -183,7 +185,7 @@ ValueWithErrorCode<json::Json> Keychain::Serialize()
     {
       return {"Keychain::Serialize() failed", std::move(response.second)};
     }
-    json[kKeyNameArray[i]] = Get(static_cast<KeyType>(i)).first;
+    json[kKeyNameMap[i]] = Get(static_cast<KeyType>(i)).first;
   }
 
   return {std::move(json), {}};
@@ -196,13 +198,11 @@ ErrorCode Keychain::Deserialize(const json::Json& input_json)
     return {};
   }
 
-  const auto str = input_json.dump();
-
   try
   {
     for (int i = 0; i < NUM_KEYS; ++i)
     {
-      auto ec = Set(static_cast<KeyType>(i), input_json[std::string(kKeyNameArray[i])].get<std::string>(), false);
+      auto ec = Set(static_cast<KeyType>(i), input_json[std::string(kKeyNameMap[i])].get<std::string>(), false);
       if (ec.Failure())
       {
         return {"Keychain::Deserialize() failed", std::move(ec)};
