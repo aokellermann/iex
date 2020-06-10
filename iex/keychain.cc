@@ -183,7 +183,7 @@ ValueWithErrorCode<json::Json> Keychain::Serialize()
     auto response = Get(static_cast<KeyType>(i));
     if (response.second.Failure())
     {
-      return {"Keychain::Serialize() failed", std::move(response.second)};
+      return {{}, {"Keychain::Serialize() failed", std::move(response.second)}};
     }
     json[kKeyNameMap[i]] = Get(static_cast<KeyType>(i)).first;
   }
