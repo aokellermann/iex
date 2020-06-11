@@ -82,6 +82,11 @@ ValueWithErrorCode<EndpointPtr<E>> EndpointFactory(const Json& input_json)
 
 ValueWithErrorCode<AggregatedResponses> Get(const AggregatedRequests& requests)
 {
+  if (requests.requests.empty() && requests.symbol_requests.empty())
+  {
+    return {{}, {"api::Get() failed", ErrorCode("AggregatedRequests is empty")}};
+  }
+
   const auto type_url_map = GetUrls(requests);
   curl::UrlSet url_set;
   url_set.reserve(type_url_map.size());
