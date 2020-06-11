@@ -185,13 +185,8 @@ using Requests = Endpoint::TypeMap<RequestOptions>;
 
 struct SymbolRequest : Request
 {
-  SymbolRequest(Symbol sym, Endpoint::Type t, RequestOptions request_options)
-      : Request{t, std::move(request_options)}, symbol(std::move(sym))
-  {
-  }
-
-  SymbolRequest(const Symbol& sym, Endpoint::Type t, const Endpoint::Options& opts = {}, Version vers = {})
-      : SymbolRequest(sym, t, RequestOptions{opts, vers})
+  SymbolRequest(Symbol sym, Request request)
+   : Request(std::move(request)), symbol(std::move(sym))
   {
   }
 
@@ -305,7 +300,7 @@ template <Endpoint::Type T>
 inline ValueWithErrorCode<EndpointPtr<EndpointTypename<T>>> Get(const Symbol& symbol,
                                                                 const RequestOptions& request_options = {})
 {
-  const auto response = Get(SymbolRequest{symbol, T, request_options});
+  const auto response = Get(SymbolRequest{symbol, {T, request_options}});
   const auto* const ptr = response.first.Get(symbol);
   if (ptr == nullptr)
   {
