@@ -200,19 +200,6 @@ struct AggregatedRequests
   SymbolRequests symbol_requests;
 };
 
-class Response
-{
- public:
-  template <Endpoint::Type T>
-  [[nodiscard]] EndpointPtr<EndpointTypename<T>> Get() const noexcept
-  {
-    return std::dynamic_pointer_cast<EndpointTypename<T>>(endpoint_);
-  }
-
- private:
-  EndpointPtr<> endpoint_;
-};
-
 class Responses
 {
  public:
