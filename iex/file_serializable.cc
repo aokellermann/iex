@@ -119,6 +119,18 @@ ErrorCode WriteStream(const Path &path, const std::string &contents, std::ostrea
  */
 ValueWithErrorCode<std::string> ReadStream(const std::filesystem::path &path, std::istream &stream)
 {
+  if (!fs::exists(path))
+  {
+    return {};
+  }
+
+  if (fs::is_directory(path))
+  {
+    return {{},
+            ErrorCode("ReadStream failed",
+                      {{"error", ErrorCode("path is a directory")}, {"path", ErrorCode(path.string())}})};
+  }
+
   const auto size = fs::file_size(path);
   std::string data(size, '\0');
   try
