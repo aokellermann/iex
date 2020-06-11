@@ -10,35 +10,132 @@
 
 #include <filesystem>
 #include <fstream>
+#include <vector>
 
 #include "iex/file_serializable.h"
 #include "iex/json_serializer.h"
 
 using Keychain = iex::api::key::Keychain;
+namespace fs = std::filesystem;
 
-TEST(Key, Environment)
+static constexpr const char* kKeyNameMap[]{"IEX_PUBLIC_KEY", "IEX_SECRET_KEY", "IEX_SANDBOX_PUBLIC_KEY",
+                                           "IEX_SANDBOX_SECRET_KEY"};
+
+std::vector<std::string> GetEnv(bool extract = true)
 {
-  Keychain key(Keychain::EnvironmentFlag{});
-  EXPECT_EQ(key.KeychainValidity(), "");
-  ASSERT_TRUE(key.KeychainValidity().Success());
+  std::vector<std::string> vars(Keychain::NUM_KEYS);
 
-  static constexpr const char* kKeyNameArray[]{"IEX_PUBLIC_KEY", "IEX_SECRET_KEY", "IEX_SANDBOX_PUBLIC_KEY",
-                                               "IEX_SANDBOX_SECRET_KEY"};
-
-  for (int i = 0; i < Keychain::KeyType::NUM_KEYS; ++i)
+  for (int i = 0; i < Keychain::NUM_KEYS; ++i)
   {
-    auto response = key.Get(static_cast<Keychain::KeyType>(i));
-    ASSERT_TRUE(response.second.Success());
-    const char* env = std::getenv(kKeyNameArray[i]);
-    ASSERT_NE(env, nullptr) << "You must have all API keys set as env variables to run this test.";
-    EXPECT_EQ(response.first, env);
+    const char* var = std::getenv(kKeyNameMap[i]);
+    if (var == nullptr)
+    {
+      return {};
+    }
+
+    vars[i] = var;
+    if (extract && unsetenv(kKeyNameMap[i]))
+    {
+      return {};
+    }
+  }
+  return vars;
+}
+
+void SetEnv(const std::vector<std::string>& vars)
+{
+  for (int i = 0; i < Keychain::NUM_KEYS; ++i)
+  {
+    setenv(kKeyNameMap[i], vars[i].c_str(), 1);
   }
 }
 
-TEST(Key, File)
+TEST(Key, EnvironmentEmpty)
 {
-  static constexpr const char* kKeyNameArray[Keychain::NUM_KEYS]{"IEX_PUBLIC_KEY", "IEX_SECRET_KEY",
-                                                                 "IEX_SANDBOX_PUBLIC_KEY", "IEX_SANDBOX_SECRET_KEY"};
+  const auto vars = GetEnv();
+  ASSERT_FALSE(vars.empty());
+
+  const Keychain key(Keychain::EnvironmentFlag{});
+  EXPECT_TRUE(key.KeychainValidity().Success()) << key.KeychainValidity();
+  EXPECT_FALSE(key.Populated());
+
+  SetEnv(vars);
+}
+
+TEST(Key, EnvironmentNotEmptyAndInvalid)
+{
+  const auto vars = GetEnv();
+  ASSERT_FALSE(vars.empty());
+
+  // Second key here in invalid
+  SetEnv({"pk_483bb0e8c5dd4a2974d362dd8aad154d", "sk_12d3caa449bd4de4b9f063089c47f",
+          "Tpk_fb19c49530a6f1e9158142010a80043c", "Tsk_d405c80f30a6f1e895814201aa80043f"});
+
+  Keychain key(Keychain::EnvironmentFlag{});
+  EXPECT_TRUE(key.KeychainValidity().Failure());
+  EXPECT_FALSE(key.Populated());
+  EXPECT_TRUE(key.Set(Keychain::PUBLIC, "", false).Failure());
+  EXPECT_TRUE(key.Get(Keychain::SECRET).second.Failure());
+
+  SetEnv(vars);
+}
+
+TEST(Key, EnvironmentPopulated)
+{
+  const auto vars = GetEnv(false);
+  ASSERT_FALSE(vars.empty());
+
+  // This test assumes environment already has valid keys
+  const Keychain key(Keychain::EnvironmentFlag{});
+  EXPECT_TRUE(key.KeychainValidity().Success()) << key.KeychainValidity();
+  EXPECT_TRUE(key.Populated());
+
+  for (int i = 0; i < Keychain::KeyType::NUM_KEYS; ++i)
+  {
+    const auto response = key.Get(static_cast<Keychain::KeyType>(i));
+    ASSERT_TRUE(response.second.Success());
+    EXPECT_EQ(response.first, vars[i]);
+  }
+}
+
+TEST(Key, FileReadFailure)
+{
+  // Induce failed read
+  const fs::path path = "/tmp/iex/keychain.json";
+  fs::remove(path);
+  fs::create_directory(path);
+
+  const Keychain key(iex::file::TEMP);
+  EXPECT_TRUE(key.KeychainValidity().Failure());
+  EXPECT_FALSE(key.Populated());
+
+  fs::remove(path);
+}
+
+TEST(Key, FileEmpty)
+{
+  const fs::path path = "/tmp/iex/keychain.json";
+  fs::remove(path);
+
+  const Keychain key(iex::file::TEMP);
+  EXPECT_TRUE(key.KeychainValidity().Success()) << key.KeychainValidity();
+  EXPECT_FALSE(key.Populated());
+}
+
+TEST(Key, FileInvalidJSON)
+{
+  std::ofstream ofstream("/tmp/iex/keychain.json");
+  const auto str = iex::json::Json::array();
+  ofstream << str;
+  ofstream.close();
+
+  const Keychain key(iex::file::TEMP);
+  ASSERT_TRUE(key.KeychainValidity().Failure());
+  EXPECT_FALSE(key.Populated());
+}
+
+TEST(Key, FilePopulated)
+{
   static constexpr const char* kDummyKeys[Keychain::NUM_KEYS]{
       "pk_483bb0e8c5dd4a2974d362dd8aad154d", "sk_12d3caa449bd4de4b9f063089c47f69b",
       "Tpk_fb19c49530a6f1e9158142010a80043c", "Tsk_d405c80f30a6f1e895814201aa80043f"};
@@ -46,18 +143,18 @@ TEST(Key, File)
   iex::json::Json json;
   for (int i = 0; i < Keychain::KeyType::NUM_KEYS; ++i)
   {
-    json[kKeyNameArray[i]] = kDummyKeys[i];
+    json[kKeyNameMap[i]] = kDummyKeys[i];
   }
 
-  std::filesystem::create_directory("/tmp/iex");
+  fs::create_directory("/tmp/iex");
   std::ofstream ofstream("/tmp/iex/keychain.json");
   const auto str = json.dump();
   ofstream << str;
   ofstream.close();
 
   Keychain key(iex::file::TEMP);
-  EXPECT_EQ(key.KeychainValidity(), "");
-  ASSERT_TRUE(key.KeychainValidity().Success());
+  ASSERT_TRUE(key.KeychainValidity().Success()) << key.KeychainValidity();
+  EXPECT_TRUE(key.Populated());
 
   for (int i = 0; i < Keychain::KeyType::NUM_KEYS; ++i)
   {
@@ -65,8 +162,6 @@ TEST(Key, File)
     ASSERT_TRUE(response.second.Success());
     EXPECT_EQ(response.first, kDummyKeys[i]);
   }
-
-  EXPECT_TRUE(key.Populated());
 }
 
 TEST(Key, ValidKeys)
