@@ -75,6 +75,12 @@ class ErrorCode : public std::string
   [[nodiscard]] inline bool Failure() const noexcept { return !Success(); }
 
   // endregion Success/Failure
+
+  // region Helpers
+
+  friend void PrintTo(const ErrorCode& ec, std::ostream* os) { *os << ec; }
+
+  // endregion Helpers
 };
 
 template <typename T>

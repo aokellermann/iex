@@ -53,6 +53,7 @@ set(iex_sources
         curl_wrapper.cc
         file_serializable.cc
         env.cc
+        keychain.cc
         )
 
 # Specify source directory.
