@@ -22,10 +22,10 @@ TEST(SystemStatus, GetWithoutTemplate)
   const auto a = response.first.Get<api::Endpoint::Type::SYSTEM_STATUS>();
   ASSERT_NE(a, nullptr);
 
-  EXPECT_EQ(a->status_, "up") << "API must be up in order to run testing.";
-  EXPECT_FALSE(a->version_.empty());
-  EXPECT_GT(a->timestamp_.count(), 0);
-  EXPECT_GT(a->current_month_api_calls_, 0);
+  EXPECT_EQ(a->Get<api::SystemStatus::MemberType::STATUS>().value(), "up") << "API must be up in order to run testing";
+  EXPECT_FALSE(a->Get<api::SystemStatus::MemberType::VERSION>().value().empty());
+  EXPECT_GT(a->Get<api::SystemStatus::MemberType::TIMESTAMP>().value().count(), 0);
+  EXPECT_GT(a->Get<api::SystemStatus::MemberType::CURRENT_MONTH_API_CALLS>().value(), 0);
 }
 
 TEST(SystemStatus, GetWithTemplate)
@@ -37,8 +37,8 @@ TEST(SystemStatus, GetWithTemplate)
   const auto a = response.first;
   ASSERT_NE(a, nullptr);
 
-  EXPECT_EQ(a->status_, "up") << "API must be up in order to run testing.";
-  EXPECT_FALSE(a->version_.empty());
-  EXPECT_GT(a->timestamp_.count(), 0);
-  EXPECT_GT(a->current_month_api_calls_, 0);
+  EXPECT_EQ(a->Get<api::SystemStatus::MemberType::STATUS>().value(), "up") << "API must be up in order to run testing";
+  EXPECT_FALSE(a->Get<api::SystemStatus::MemberType::VERSION>().value().empty());
+  EXPECT_GT(a->Get<api::SystemStatus::MemberType::TIMESTAMP>().value().count(), 0);
+  EXPECT_GT(a->Get<api::SystemStatus::MemberType::CURRENT_MONTH_API_CALLS>().value(), 0);
 }

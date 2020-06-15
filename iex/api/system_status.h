@@ -7,6 +7,7 @@
 #pragma once
 
 #include <string>
+#include <utility>
 
 #include "iex/api.h"
 #include "iex/json_serializer.h"
@@ -27,18 +28,64 @@ namespace iex::api
 class SystemStatus : public Endpoint
 {
  public:
+  enum MemberType
+  {
+    STATUS,
+    VERSION,
+    TIMESTAMP,
+    CURRENT_MONTH_API_CALLS
+  };
+
+ private:
+  template <SystemStatus::MemberType>
+  struct MemberMap;
+
+  template <SystemStatus::MemberType T>
+  using MemberTypename = typename MemberMap<T>::type;
+
+ public:
   SystemStatus() : Endpoint("status") {}
+
+  explicit SystemStatus(json::JsonStorage data) : Endpoint("status"), data_(std::move(data)) {}
+
+  template <MemberType T>
+  json::Member<MemberTypename<T>> Get() const noexcept
+  {
+    return data_.SafeGetMember<MemberTypename<T>>(MemberMap<T>::kName);
+  }
 
   ~SystemStatus() override = default;
 
-  explicit SystemStatus(const Json& input_json) : SystemStatus() { Deserialize(input_json); }
+ private:
+  const json::JsonStorage data_;
+};
 
-  ErrorCode Deserialize(const Json& input_json) final;
+template <>
+struct SystemStatus::MemberMap<SystemStatus::STATUS>
+{
+  using type = std::string;
+  static constexpr const char* const kName = "status";
+};
 
-  std::string status_;
-  std::string version_;
-  Timestamp timestamp_;
-  uint64_t current_month_api_calls_;
+template <>
+struct SystemStatus::MemberMap<SystemStatus::VERSION>
+{
+  using type = std::string;
+  static constexpr const char* const kName = "version";
+};
+
+template <>
+struct SystemStatus::MemberMap<SystemStatus::TIMESTAMP>
+{
+  using type = Timestamp;
+  static constexpr const char* const kName = "time";
+};
+
+template <>
+struct SystemStatus::MemberMap<SystemStatus::CURRENT_MONTH_API_CALLS>
+{
+  using type = uint64_t;
+  static constexpr const char* const kName = "currentMonthAPICalls";
 };
 
 }  // namespace iex::api

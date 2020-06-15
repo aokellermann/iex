@@ -11,4 +11,6 @@ namespace iex::api
 class Endpoint;
 
 class SystemStatus;
+
+class Quote;
 }

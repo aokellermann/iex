@@ -9,16 +9,17 @@
 #include <chrono>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
+#include <vector>
 
 #include "iex/api/forward.h"
 #include "iex/iex.h"
-#include "iex/json_serializer.h"
 
 namespace iex::api
 {
@@ -30,14 +31,16 @@ using SymbolSet = std::unordered_set<Symbol>;
 template <typename T>
 using SymbolMap = std::unordered_map<Symbol, T>;
 
-using Json = json::Json;
-
 /**
  * Represents a timestamp in milliseconds.
  *
  * IEX timestamps are given in unix time with milliseconds.
  */
 using Timestamp = std::chrono::milliseconds;
+
+using Price = double;
+using Volume = uint64_t;
+using Percent = double;
 
 /**
  * @see https://iexcloud.io/docs/api/#api-versioning
@@ -69,7 +72,7 @@ using EndpointPtr = std::shared_ptr<const E>;
 /**
  * Base class for all endpoints.
  */
-class Endpoint : virtual json::JsonDeserializable
+class Endpoint
 {
  public:
   // region Types
@@ -87,7 +90,12 @@ class Endpoint : virtual json::JsonDeserializable
     /**
      * @see https://iexcloud.io/docs/api/#api-system-metadata
      */
-    SYSTEM_STATUS
+    SYSTEM_STATUS,
+
+    /**
+     * @see https://iexcloud.io/docs/api/#quote
+     */
+    QUOTE
   };
 
   /**
@@ -153,6 +161,15 @@ class Endpoint : virtual json::JsonDeserializable
   const Name name_;
 };
 
+struct SymbolEndpoint : Endpoint
+{
+  SymbolEndpoint() = delete;
+
+  SymbolEndpoint(Endpoint::Name name, Symbol sym) : Endpoint(std::move(name)), symbol(std::move(sym)) {}
+
+  const Symbol symbol;
+};
+
 template <Endpoint::Type>
 struct EndpointMap;
 
@@ -160,6 +177,12 @@ template <>
 struct EndpointMap<Endpoint::Type::SYSTEM_STATUS>
 {
   using type = const SystemStatus;
+};
+
+template <>
+struct EndpointMap<Endpoint::Type::QUOTE>
+{
+  using type = const Quote;
 };
 
 template <Endpoint::Type T>
@@ -185,10 +208,7 @@ using Requests = Endpoint::TypeMap<RequestOptions>;
 
 struct SymbolRequest : Request
 {
-  SymbolRequest(Symbol sym, Request request)
-   : Request(std::move(request)), symbol(std::move(sym))
-  {
-  }
+  SymbolRequest(Symbol sym, Request request) : Request(std::move(request)), symbol(std::move(sym)) {}
 
   Symbol symbol;
 };

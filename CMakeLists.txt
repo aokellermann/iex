@@ -47,8 +47,11 @@ message(STATUS "IEX_BUILD_TESTING: ${IEX_BUILD_TESTING}")
 # Set library headers and sources.
 set(iex_headers
         iex.h
+        curl_wrapper.h
+        file_serializable.h
+        env.h
+        keychain.h
         api.h
-        api/forward.h
         api/system_status.h
         )
 set(iex_sources
@@ -58,7 +61,6 @@ set(iex_sources
         env.cc
         keychain.cc
         api.cc
-        api/system_status.cc
         )
 
 # Specify source directory.

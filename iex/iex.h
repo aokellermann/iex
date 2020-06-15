@@ -6,12 +6,22 @@
 
 #pragma once
 
+#include <chrono>
 #include <initializer_list>
 #include <string>
 #include <utility>
 
 namespace iex
 {
+// region Generic Types
+
+/**
+ * Represents a timestamp in milliseconds.
+ */
+using Timestamp = std::chrono::milliseconds;
+
+// endregion Generic Types
+
 // region named pair
 
 /**

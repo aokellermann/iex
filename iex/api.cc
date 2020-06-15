@@ -7,9 +7,11 @@
 #include "api.h"
 
 #include <unordered_map>
+#include <functional>
 
 #include "iex/api/system_status.h"
 #include "iex/curl_wrapper.h"
+#include "iex/json_serializer.h"
 #include "iex/singleton.h"
 
 namespace iex::api
@@ -22,7 +24,8 @@ const std::string kBaseUrlMap[]{"https://cloud.iexapis.com/", "https://sandbox.i
 
 const std::string kVersionUrlMap[]{"stable", /*"latest", */ "v1", "beta"};
 
-const std::vector<const Endpoint*> kEndpoints{&singleton::GetInstance<SystemStatus>()};
+const std::vector<const Endpoint*> kEndpoints{&singleton::GetInstance<SystemStatus>(),
+                                              /*&singleton::GetInstance<Quote>()*/};
 
 curl::Url GetUrl(const Endpoint::Type& type, const RequestOptions& options)
 {
@@ -30,6 +33,20 @@ curl::Url GetUrl(const Endpoint::Type& type, const RequestOptions& options)
       kBaseUrlMap[options.data_type] + kVersionUrlMap[options.version] + '/' + kEndpoints[type]->GetName();
   curl::Url::Params params;
   params.reserve(options.options.size());
+  for (const auto& opt : options.options)
+  {
+    params.insert(curl::Url::Param(opt->GetName(), {opt->GetValueAsString()}));
+  }
+
+  return curl::Url(std::move(url_string), std::move(params));
+}
+
+curl::Url GetUrl(const Symbol& symbol, const Endpoint::Type& type, const RequestOptions& options)
+{
+  std::string url_string = kBaseUrlMap[options.data_type] + kVersionUrlMap[options.version] + "/stock/market/batch";
+
+  curl::Url::Params params = {{"symbols", symbol}, {"types", kEndpoints[type]->GetName()}};
+  params.reserve(params.size() + options.options.size());
   for (const auto& opt : options.options)
   {
     params.insert(curl::Url::Param(opt->GetName(), {opt->GetValueAsString()}));
@@ -46,6 +63,7 @@ curl::UrlMap<Endpoint::Type> GetUrls(const AggregatedRequests& requests)
   // Only stock endpoint may be batch called according to documentation. https://iexcloud.io/docs/api/#batch-requests
 
   curl::UrlMap<Endpoint::Type> url_map;
+  url_map.reserve(requests.requests.size() + requests.symbol_requests.size());
 
   // First, create non-symbol-related Urls.
   for (const auto& [type, opts] : requests.requests)
@@ -57,24 +75,55 @@ curl::UrlMap<Endpoint::Type> GetUrls(const AggregatedRequests& requests)
     }
   }
 
+  for (const auto& [symbol, reqs] : requests.symbol_requests)
+  {
+    for (const auto& [type, opts] : reqs)
+    {
+      curl::Url url = GetUrl(symbol, type, opts);
+      if (url.Validity().Success())
+      {
+        url_map.emplace(std::move(url), type);
+      }
+    }
+  }
+
   return url_map;
 }
 
 // endregion Url Helpers
 
+// region Endpoint Factories
+
 template <typename E = Endpoint>
-ValueWithErrorCode<EndpointPtr<E>> EndpointFactory(const Json& input_json)
+ValueWithErrorCode<EndpointPtr<E>> EndpointFactory(const json::Json& input_json)
 {
   static_assert(std::is_base_of<Endpoint, E>::value, "E must derive from Endpoint");
   try
   {
-    return {std::make_shared<const E>(input_json), {}};
+    return {std::make_shared<const E>(json::JsonStorage{input_json}), {}};
   }
   catch (const std::exception& e)
   {
-    return {nullptr, ErrorCode("SystemStatus::Deserialize() failed", {"exception", ErrorCode(e.what())})};
+    return {nullptr, ErrorCode("Endpoint::Deserialize() failed", {"exception", ErrorCode(e.what())})};
   }
 }
+
+template <typename E = SymbolEndpoint>
+ValueWithErrorCode<EndpointPtr<E>> EndpointFactory(Symbol symbol, const json::Json& input_json)
+{
+  static_assert(std::is_base_of<SymbolEndpoint, E>::value, "E must derive from SymbolEndpoint");
+
+  try
+  {
+    return {std::make_shared<const E>(json::JsonStorage{input_json}, std::move(symbol)), {}};
+  }
+  catch (const std::exception& e)
+  {
+    return {nullptr, ErrorCode("SymbolEndpoint::Deserialize() failed", {"exception", ErrorCode(e.what())})};
+  }
+}
+
+// endregion Endpoint Factories
 
 }  // namespace
 
@@ -127,8 +176,24 @@ ValueWithErrorCode<AggregatedResponses> Get(const AggregatedRequests& requests)
         aggregated_responses.responses.Put<Endpoint::Type::SYSTEM_STATUS>(new_endpoint_ptr.first);
         break;
       }
+
+        /*
+      case Endpoint::Type::QUOTE:
+      {
+        auto new_endpoint_ptr = EndpointFactory<Quote>(json.first.items().begin().key(),
+                                                       *json.first.items().begin().value().items().begin());
+        if (new_endpoint_ptr.second.Failure())
+        {
+          return {{}, {"api::Get() failed", std::move(new_endpoint_ptr.second)}};
+        }
+
+        aggregated_responses.responses.Put<Endpoint::Type::SYSTEM_STATUS>(new_endpoint_ptr.first);
+        break;
+      }
+         */
     }
   }
+
   return {aggregated_responses, {}};
 }
 
