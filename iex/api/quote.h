@@ -80,8 +80,7 @@ class Quote : public SymbolEndpoint
  public:
   enum MemberType
   {
-    E_FIRST,
-    COMPANY_NAME = E_FIRST,
+    COMPANY_NAME,
     PRIMARY_EXCHANGE,
     CALCULATION_PRICE,
     OPEN_PRICE,
@@ -134,7 +133,6 @@ class Quote : public SymbolEndpoint
     YTD_CHANGE,
     LAST_TRADE_TIME,
     IS_US_MARKET_OPEN,
-    E_LAST
   };
 
  private:
