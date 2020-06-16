@@ -61,6 +61,8 @@ class Keychain : private file::FileIoBase, private json::JsonBidirectionalSerial
    */
   explicit Keychain(file::Directory directory = file::Directory::HOME);
 
+  ~Keychain() override = default;
+
   /**
    * Stores or overwrites an API key.
    * @param type the type of key

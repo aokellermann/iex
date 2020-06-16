@@ -26,6 +26,9 @@ using Member = std::optional<T>;
  */
 class JsonSerializable
 {
+ public:
+  virtual ~JsonSerializable() = default;
+
  protected:
   /**
    * Creates and returns a Json object representing this object. This function must be overridden.
@@ -39,6 +42,9 @@ class JsonSerializable
  */
 class JsonDeserializable
 {
+ public:
+  virtual ~JsonDeserializable() = default;
+
  protected:
   /**
    * Stores data from input_json in this object. This function must be overridden.
@@ -52,6 +58,8 @@ class JsonDeserializable
  */
 class JsonBidirectionalSerializable : protected JsonSerializable, protected JsonDeserializable
 {
+ public:
+  ~JsonBidirectionalSerializable() override = default;
 };
 
 class JsonStorage : public JsonDeserializable
