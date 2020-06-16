@@ -9,7 +9,7 @@
 #include <nlohmann/json.hpp>
 #include <stdexcept>
 
-#include "iex/iex.h"
+#include "iex/common.h"
 
 /**
  * Contains abstract interfaces used for converting to and from JSON format.
@@ -20,6 +20,8 @@ using Json = nlohmann::json;
 
 template <typename T>
 using Member = std::optional<T>;
+
+using MemberName = const char* const;
 
 /**
  * This is an abstract interface for objects that can be serialized with Json data.
@@ -74,7 +76,7 @@ class JsonStorage : public JsonDeserializable
   }
 
   template <typename T>
-  Member<T> SafeGetMember(const char* member_name) const noexcept
+  Member<T> SafeGetMember(MemberName member_name) const noexcept
   {
     try
     {

@@ -12,7 +12,7 @@
 #include <unordered_set>
 #include <utility>
 
-#include "iex/iex.h"
+#include "iex/common.h"
 #include "iex/json_serializer.h"
 
 /**

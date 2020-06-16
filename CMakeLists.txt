@@ -46,16 +46,16 @@ message(STATUS "IEX_BUILD_TESTING: ${IEX_BUILD_TESTING}")
 
 # Set library headers and sources.
 set(iex_headers
-        iex.h
+        common.h
         curl_wrapper.h
         file_serializable.h
         env.h
         keychain.h
         api.h
         api/system_status.h
+        api/quote.h
         )
 set(iex_sources
-        iex.cc
         curl_wrapper.cc
         file_serializable.cc
         env.cc

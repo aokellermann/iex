@@ -44,9 +44,7 @@ class SystemStatus : public Endpoint
   using MemberTypename = typename MemberMap<T>::type;
 
  public:
-  SystemStatus() : Endpoint("status") {}
-
-  explicit SystemStatus(json::JsonStorage data) : Endpoint("status"), data_(std::move(data)) {}
+  explicit SystemStatus(json::JsonStorage data = json::JsonStorage{}) : Endpoint("status", std::move(data)) {}
 
   template <MemberType T>
   json::Member<MemberTypename<T>> Get() const noexcept
@@ -55,9 +53,6 @@ class SystemStatus : public Endpoint
   }
 
   ~SystemStatus() override = default;
-
- private:
-  const json::JsonStorage data_;
 };
 
 template <>

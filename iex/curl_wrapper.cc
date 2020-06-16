@@ -87,16 +87,25 @@ struct EasyHandleDataPair : std::pair<EasyHandle, std::string>
     curl_easy_setopt(first.handle_, CURLOPT_PRIVATE, &url);
   }
 
-  Json ExtractData()
+  ValueWithErrorCode<Json> ExtractData()
   {
     if (second.empty())
     {
-      return Json();
+      return {{}, ErrorCode{"Empty return data"}};
     }
 
-    Json json = Json::parse(second);
+    Json json;
+    try
+    {
+      json = Json::parse(second);
+    }
+    catch (const std::exception& e)
+    {
+      return {{}, ErrorCode("Failed to parse return data", {{"ex", ErrorCode(e.what())}, {"data", ErrorCode(second)}})};
+    }
+
     second.clear();
-    return json;
+    return {std::move(json), {}};
   }
 };
 
@@ -169,7 +178,13 @@ class MultiHandleWrapper
     {
       auto ec_iter = ecs.find(handle.first);
       ErrorCode ec = ec_iter == ecs.end() ? ErrorCode() : ec_iter->second;
-      return_data.insert(std::make_pair(handle.first, std::make_pair(handle.second.ExtractData(), std::move(ec))));
+      auto data = handle.second.ExtractData();
+      if (ec.Success() && data.second.Failure())
+      {
+        ec = std::move(data.second);
+      }
+
+      return_data.insert(std::make_pair(handle.first, std::make_pair(std::move(data.first), std::move(ec))));
     }
 
     ClearUsedHandles();

@@ -11,17 +11,13 @@
 #include <unordered_set>
 #include <vector>
 
+#include "iex/api.h"
+#include "iex/keychain.h"
+#include "iex/common.h"
 #include "iex/env.h"
-#include "iex/iex.h"
 #include "iex/singleton.h"
 
 namespace env = iex::env;
-
-TEST(iex, init_test)
-{
-  const auto ec = iex::Init();
-  EXPECT_TRUE(ec.Success());
-}
 
 /**
  * Test whether singleton works properly.
@@ -33,6 +29,10 @@ TEST(Singleton, SingletonUnique)
 {
   struct SingletonImpl
   {
+    explicit SingletonImpl(int num) : i(num) {}
+
+    explicit SingletonImpl(int num, double) : i(num) {}
+
     int i;
     bool operator==(const SingletonImpl& other) const { return i == other.i; }
   };
@@ -47,7 +47,8 @@ TEST(Singleton, SingletonUnique)
 
   const auto thread_func = [&set, &mutex](int i) {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));  // Try to induce pileup
-    const auto& instance = iex::singleton::GetInstance<SingletonImpl>();
+    const auto& instance =
+        i % 2 == 0 ? iex::singleton::GetInstance<SingletonImpl>(i) : iex::singleton::GetInstance<SingletonImpl>(i, 1.5);
     std::lock_guard<std::mutex> lock(mutex);
     set.insert(instance);
   };
@@ -65,6 +66,25 @@ TEST(Singleton, SingletonUnique)
   }
 
   EXPECT_EQ(set.size(), 1);
+}
+
+TEST(Singleton, Variadic)
+{
+  struct A
+  {
+    A() = default;
+    A(int) {}
+    A(double, int) {}
+  };
+
+  const A& x = iex::singleton::GetInstance<A>();
+  const A& xx = iex::singleton::GetInstance<A>();
+  const A& y = iex::singleton::GetInstance<A>(0);
+  const A& z = iex::singleton::GetInstance<A>(0.5, 1);
+  ASSERT_EQ(std::addressof(x), std::addressof(xx));
+  EXPECT_EQ(std::addressof(x), std::addressof(y));
+  EXPECT_EQ(std::addressof(x), std::addressof(z));
+  EXPECT_EQ(std::addressof(y), std::addressof(z));
 }
 
 TEST(Env, GetHome)
@@ -114,6 +134,12 @@ TEST(Env, IllegalNamesAndValues)
 
 int main(int argc, char** argv)
 {
+  const auto ec = iex::api::Init(iex::api::key::Keychain::EnvironmentFlag());
+  if (ec.Failure())
+  {
+    return 1;
+  }
+
   testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

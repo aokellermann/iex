@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <memory>
@@ -19,17 +20,46 @@
 #include <vector>
 
 #include "iex/api/forward.h"
-#include "iex/iex.h"
+#include "iex/common.h"
+#include "iex/json_serializer.h"
+#include "iex/keychain.h"
 
 namespace iex::api
 {
 // region Common Types
 
-using Symbol = std::string;
-using SymbolSet = std::unordered_set<Symbol>;
+class Symbol
+{
+ public:
+  Symbol() = default;
+
+  Symbol(const char* sym) : Symbol(std::string(sym == nullptr ? "" : sym)) {}
+
+  explicit Symbol(std::string sym) : impl_(std::move(sym))
+  {
+    for (auto& c : impl_)
+    {
+      c = std::toupper(static_cast<unsigned char>(c));
+    }
+  }
+
+  const std::string& Get() const noexcept { return impl_; }
+
+  bool operator==(const Symbol& other) const { return Get() == other.Get(); }
+
+  struct Hasher
+  {
+    std::size_t operator()(const Symbol& s) const { return std::hash<std::string>()(s.Get()); }
+  };
+
+ private:
+  std::string impl_;
+};
+
+using SymbolSet = std::unordered_set<Symbol, Symbol::Hasher>;
 
 template <typename T>
-using SymbolMap = std::unordered_map<Symbol, T>;
+using SymbolMap = std::unordered_map<Symbol, T, Symbol::Hasher>;
 
 /**
  * Represents a timestamp in milliseconds.
@@ -41,6 +71,34 @@ using Timestamp = std::chrono::milliseconds;
 using Price = double;
 using Volume = uint64_t;
 using Percent = double;
+
+struct PriceInfo
+{
+  Price price;
+  Timestamp timestamp;
+};
+
+struct PriceInfoWithSource : PriceInfo
+{
+  PriceInfoWithSource(Price pr, Timestamp ts, std::string src)
+      : PriceInfo{std::move(pr), std::move(ts)}, source(std::move(src))
+  {
+  }
+
+  std::string source;
+};
+
+struct OrderQuote
+{
+  Price price;
+  Volume size;
+};
+
+struct Change
+{
+  Price change;
+  Percent change_percent;
+};
 
 /**
  * @see https://iexcloud.io/docs/api/#api-versioning
@@ -151,11 +209,14 @@ class Endpoint
 
   // endregion Types
 
-  inline explicit Endpoint(Name name) : name_(std::move(name)) {}
+  inline Endpoint(Name name, json::JsonStorage data) : data_(std::move(data)), name_(std::move(name)) {}
 
   virtual ~Endpoint() = default;
 
   [[nodiscard]] inline std::string GetName() const noexcept { return name_; }
+
+ protected:
+  const json::JsonStorage data_;
 
  private:
   const Name name_;
@@ -165,7 +226,10 @@ struct SymbolEndpoint : Endpoint
 {
   SymbolEndpoint() = delete;
 
-  SymbolEndpoint(Endpoint::Name name, Symbol sym) : Endpoint(std::move(name)), symbol(std::move(sym)) {}
+  SymbolEndpoint(Symbol sym, Endpoint::Name name, json::JsonStorage data)
+      : Endpoint(std::move(name), std::move(data)), symbol(std::move(sym))
+  {
+  }
 
   const Symbol symbol;
 };
@@ -212,7 +276,7 @@ struct SymbolRequest : Request
 
   Symbol symbol;
 };
-using SymbolRequests = std::unordered_map<Symbol, Requests>;
+using SymbolRequests = SymbolMap<Requests>;
 
 struct AggregatedRequests
 {
@@ -226,7 +290,7 @@ class Responses
   template <Endpoint::Type T>
   void Put(EndpointPtr<> ptr)
   {
-    endpoint_map_.emplace(T, ptr);
+    endpoint_map_.emplace(T, std::move(ptr));
   }
 
   template <Endpoint::Type T>
@@ -242,6 +306,12 @@ class Responses
 class SymbolResponses
 {
  public:
+  template <Endpoint::Type T>
+  void Put(EndpointPtr<> ptr, const Symbol& symbol)
+  {
+    security_map_[symbol].Put<T>(std::move(ptr));
+  }
+
   [[nodiscard]] const Responses* Get(const Symbol& symbol) const
   {
     const auto iter = security_map_.find(symbol);
@@ -261,6 +331,20 @@ struct AggregatedResponses
 // endregion Requests and Responses
 
 // region Interface
+
+/**
+ * This function must be called once at program startup, before any other threads have been created.
+ * @return ErrorCode
+ */
+ErrorCode Init(const key::Keychain::EnvironmentFlag&);
+
+/**
+ * This function must be called once at program startup, before any other threads have been created.
+ * @return ErrorCode
+ */
+ErrorCode Init(file::Directory directory = file::Directory::HOME);
+
+bool IsReadyForUse();
 
 ValueWithErrorCode<AggregatedResponses> Get(const AggregatedRequests& requests);
 
@@ -299,6 +383,8 @@ inline ValueWithErrorCode<SymbolResponses> Get(const SymbolRequest& request)
 template <Endpoint::Type T>
 inline ValueWithErrorCode<EndpointPtr<EndpointTypename<T>>> Get(const RequestOptions& request_options = {})
 {
+  static_assert(T == Endpoint::Type::SYSTEM_STATUS, "T is not of valid type");
+
   const auto response = Get(Request{T, request_options});
   return {response.first.Get<T>(), std::move(response.second)};
 }
@@ -307,11 +393,13 @@ template <Endpoint::Type T>
 inline ValueWithErrorCode<EndpointPtr<EndpointTypename<T>>> Get(const Symbol& symbol,
                                                                 const RequestOptions& request_options = {})
 {
+  static_assert(T == Endpoint::Type::QUOTE, "T is not of valid type");
+
   const auto response = Get(SymbolRequest{symbol, {T, request_options}});
   const auto* const ptr = response.first.Get(symbol);
   if (ptr == nullptr)
   {
-    return {{}, {"SymbolResponses::Get return nullptr"}};
+    return {{}, ErrorCode{"SymbolResponses::Get return nullptr"}};
   }
 
   return {ptr->Get<T>(), std::move(response.second)};

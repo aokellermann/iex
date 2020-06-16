@@ -46,8 +46,6 @@ class ErrorCode : public std::string
 
   ErrorCode(const ErrorCode& ec) = default;
 
-  explicit ErrorCode(const char* str) : std::string(str) {}
-
   explicit ErrorCode(const std::string& str) : std::string(str) {}
 
   ErrorCode(const std::string& message, const ErrorCode& inner_ec) : std::string(message + ": [" + inner_ec + ']') {}
@@ -97,15 +95,4 @@ template <typename T>
 using ValueWithErrorCode = std::pair<T, ErrorCode>;
 
 // endregion error code
-
-// region Interface
-/**
- * This function must be called once at program startup, before any other threads have been created.
- * @see iex::curl::Init
- * @return ErrorCode
- */
-ErrorCode Init();
-
-// endregion Interface
-
 }  // namespace iex

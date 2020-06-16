@@ -6,12 +6,14 @@
 
 #include "api.h"
 
-#include <unordered_map>
 #include <functional>
+#include <unordered_map>
 
+#include "iex/api/quote.h"
 #include "iex/api/system_status.h"
 #include "iex/curl_wrapper.h"
 #include "iex/json_serializer.h"
+#include "iex/keychain.h"
 #include "iex/singleton.h"
 
 namespace iex::api
@@ -20,12 +22,25 @@ namespace
 {
 // region Url Helpers
 
+key::Keychain* keychain;
+
 const std::string kBaseUrlMap[]{"https://cloud.iexapis.com/", "https://sandbox.iexapis.com"};
 
 const std::string kVersionUrlMap[]{"stable", /*"latest", */ "v1", "beta"};
 
 const std::vector<const Endpoint*> kEndpoints{&singleton::GetInstance<SystemStatus>(),
-                                              /*&singleton::GetInstance<Quote>()*/};
+                                              &singleton::GetInstance<Quote>()};
+
+ValueWithErrorCode<key::Keychain::Key> GetKey(DataType type)
+{
+  if (keychain == nullptr)
+  {
+    return {{}, ErrorCode{"Keychain was never created"}};
+  }
+
+  return keychain->Get(type == DataType::AUTHENTIC ? key::Keychain::KeyType::SECRET
+                                                   : key::Keychain::KeyType::SANDBOX_SECRET);
+}
 
 curl::Url GetUrl(const Endpoint::Type& type, const RequestOptions& options)
 {
@@ -45,7 +60,13 @@ curl::Url GetUrl(const Symbol& symbol, const Endpoint::Type& type, const Request
 {
   std::string url_string = kBaseUrlMap[options.data_type] + kVersionUrlMap[options.version] + "/stock/market/batch";
 
-  curl::Url::Params params = {{"symbols", symbol}, {"types", kEndpoints[type]->GetName()}};
+  const auto key = GetKey(options.data_type);
+  if (key.second.Failure())
+  {
+    return curl::Url{""};  // Invalid
+  }
+
+  curl::Url::Params params = {{"symbols", symbol.Get()}, {"types", kEndpoints[type]->GetName()}, {"token", key.first}};
   params.reserve(params.size() + options.options.size());
   for (const auto& opt : options.options)
   {
@@ -98,6 +119,7 @@ template <typename E = Endpoint>
 ValueWithErrorCode<EndpointPtr<E>> EndpointFactory(const json::Json& input_json)
 {
   static_assert(std::is_base_of<Endpoint, E>::value, "E must derive from Endpoint");
+
   try
   {
     return {std::make_shared<const E>(json::JsonStorage{input_json}), {}};
@@ -109,7 +131,7 @@ ValueWithErrorCode<EndpointPtr<E>> EndpointFactory(const json::Json& input_json)
 }
 
 template <typename E = SymbolEndpoint>
-ValueWithErrorCode<EndpointPtr<E>> EndpointFactory(Symbol symbol, const json::Json& input_json)
+ValueWithErrorCode<EndpointPtr<E>> EndpointFactory(const json::Json& input_json, Symbol symbol)
 {
   static_assert(std::is_base_of<SymbolEndpoint, E>::value, "E must derive from SymbolEndpoint");
 
@@ -125,9 +147,49 @@ ValueWithErrorCode<EndpointPtr<E>> EndpointFactory(Symbol symbol, const json::Js
 
 // endregion Endpoint Factories
 
+// region Init
+
+ErrorCode InnerInit()
+{
+  const auto ec = curl::Init();
+  if (ec.Failure())
+  {
+    return ErrorCode("iex::Init failed", ec);
+  }
+
+  return {};
+}
+
+// endregion Init
 }  // namespace
 
 // region Interface
+
+ErrorCode Init(const key::Keychain::EnvironmentFlag&)
+{
+  auto ec = InnerInit();
+  if (ec.Failure())
+  {
+    return ec;
+  }
+
+  keychain = &singleton::GetInstance<key::Keychain>(key::Keychain::EnvironmentFlag());
+  return keychain->KeychainValidity();
+}
+
+ErrorCode Init(file::Directory directory)
+{
+  auto ec = InnerInit();
+  if (ec.Failure())
+  {
+    return ec;
+  }
+
+  keychain = &singleton::GetInstance<key::Keychain>(directory);
+  return keychain->KeychainValidity();
+}
+
+bool IsReadyForUse() { return keychain->KeychainValidity().Success() && keychain->Populated(); }
 
 ValueWithErrorCode<AggregatedResponses> Get(const AggregatedRequests& requests)
 {
@@ -177,20 +239,18 @@ ValueWithErrorCode<AggregatedResponses> Get(const AggregatedRequests& requests)
         break;
       }
 
-        /*
       case Endpoint::Type::QUOTE:
       {
-        auto new_endpoint_ptr = EndpointFactory<Quote>(json.first.items().begin().key(),
-                                                       *json.first.items().begin().value().items().begin());
+        const auto symbol = Symbol(json.first.items().begin().key());
+        auto new_endpoint_ptr = EndpointFactory<Quote>(*json.first.items().begin().value().items().begin(), symbol);
         if (new_endpoint_ptr.second.Failure())
         {
           return {{}, {"api::Get() failed", std::move(new_endpoint_ptr.second)}};
         }
 
-        aggregated_responses.responses.Put<Endpoint::Type::SYSTEM_STATUS>(new_endpoint_ptr.first);
+        aggregated_responses.symbol_responses.Put<Endpoint::Type::QUOTE>(new_endpoint_ptr.first, symbol);
         break;
       }
-         */
     }
   }
 
