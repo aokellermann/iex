@@ -181,7 +181,8 @@ ValueWithErrorCode<std::string> ReadFile(const Path &path)
 }  // namespace
 
 FileIoBase::FileIoBase(const Path &relative_path, const Directory directory, const Extension extension)
-    : directory_path_(GetDirectoryPath(directory)),
+    : ec_(),  // Initialize this first because it may be set in this same constructor
+      directory_path_(GetDirectoryPath(directory)),
       full_path_((directory_path_ / relative_path).string() + GetExtensionString(extension))
 {
   if (ec_.Success())

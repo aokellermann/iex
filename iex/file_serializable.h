@@ -10,7 +10,7 @@
 #include <string>
 #include <utility>
 
-#include "iex/iex.h"
+#include "iex/common.h"
 
 /**
  * Contains declarations necessary for writing to and reading from local files.
@@ -91,9 +91,9 @@ class FileIoBase
 
   [[nodiscard]] std::string GetExtensionString(Extension extension);
 
+  ErrorCode ec_;
   const Path directory_path_;
   const Path full_path_;
-  ErrorCode ec_;
 };
 
 }  // namespace iex::file
