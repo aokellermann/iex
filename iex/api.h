@@ -72,34 +72,6 @@ using Price = double;
 using Volume = uint64_t;
 using Percent = double;
 
-struct PriceInfo
-{
-  Price price;
-  Timestamp timestamp;
-};
-
-struct PriceInfoWithSource : PriceInfo
-{
-  PriceInfoWithSource(Price pr, Timestamp ts, std::string src)
-      : PriceInfo{std::move(pr), std::move(ts)}, source(std::move(src))
-  {
-  }
-
-  std::string source;
-};
-
-struct OrderQuote
-{
-  Price price;
-  Volume size;
-};
-
-struct Change
-{
-  Price change;
-  Percent change_percent;
-};
-
 /**
  * @see https://iexcloud.io/docs/api/#api-versioning
  */
