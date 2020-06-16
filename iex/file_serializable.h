@@ -91,7 +91,7 @@ class FileIoBase
 
   [[nodiscard]] std::string GetExtensionString(Extension extension);
 
-  ErrorCode ec_;
+  ErrorCode ec_;  // Initialize this first because it may be modified in this same constructor
   const Path directory_path_;
   const Path full_path_;
 };

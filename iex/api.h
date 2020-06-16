@@ -33,7 +33,7 @@ class Symbol
  public:
   Symbol() = default;
 
-  Symbol(const char* sym) : Symbol(std::string(sym == nullptr ? "" : sym)) {}
+  explicit Symbol(const char* sym) : Symbol(std::string(sym == nullptr ? "" : sym)) {}
 
   explicit Symbol(std::string sym) : impl_(std::move(sym))
   {
@@ -43,7 +43,7 @@ class Symbol
     }
   }
 
-  const std::string& Get() const noexcept { return impl_; }
+  [[nodiscard]] const std::string& Get() const noexcept { return impl_; }
 
   bool operator==(const Symbol& other) const { return Get() == other.Get(); }
 

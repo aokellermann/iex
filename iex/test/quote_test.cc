@@ -14,7 +14,7 @@ namespace api = iex::api;
 
 TEST(Quote, GetWithoutTemplate)
 {
-  api::Symbol sym = "tsla";
+  api::Symbol sym("tsla");
   api::SymbolRequest req{sym, {api::Endpoint::Type::QUOTE}};
   auto response = api::Get(req);
   EXPECT_EQ(response.second, iex::ErrorCode());
@@ -29,7 +29,7 @@ TEST(Quote, GetWithoutTemplate)
 
 TEST(Quote, GetWithTemplate)
 {
-  auto response = api::Get<api::Endpoint::Type::QUOTE>("tsla");
+  auto response = api::Get<api::Endpoint::Type::QUOTE>(api::Symbol("tsla"));
   EXPECT_EQ(response.second, iex::ErrorCode());
   ASSERT_TRUE(response.second.Success());
 
