@@ -54,6 +54,7 @@ set(iex_headers
         api.h
         api/system_status.h
         api/quote.h
+        api/quote.tcc
         )
 set(iex_sources
         curl_wrapper.cc

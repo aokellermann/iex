@@ -9,6 +9,7 @@
 #include <array>
 #include <chrono>
 #include <cstdint>
+#include <ios>
 #include <memory>
 #include <optional>
 #include <sstream>
@@ -18,7 +19,6 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
-#include <ios>
 
 #include "iex/api/forward.h"
 #include "iex/common.h"
