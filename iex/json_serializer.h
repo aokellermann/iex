@@ -96,7 +96,7 @@ class JsonStorage : public JsonDeserializable
 
  private:
   template <typename T>
-  T GetMember(Json::const_reference ref) const
+  Member<T> GetMember(Json::const_reference ref) const
   {
     return ref.get<T>();
   }
@@ -105,9 +105,17 @@ class JsonStorage : public JsonDeserializable
 };
 
 template <>
-inline Timestamp JsonStorage::GetMember<Timestamp>(Json::const_reference ref) const
+inline Member<Timestamp> JsonStorage::GetMember<Timestamp>(Json::const_reference ref) const
 {
-  return Timestamp{ref.get<uint64_t>()};
+  const auto ms = ref.get<int64_t>();
+
+  // IEX documentation specifies that a 0 or -1 value may be present.
+  if (ms <= 0)
+  {
+    return std::nullopt;
+  }
+
+  return Timestamp{ms};
 }
 
 }  // namespace iex::json
