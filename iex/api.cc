@@ -41,7 +41,7 @@ std::string& ToUpper(std::string& str)
  */
 key::Keychain* keychain = nullptr;
 
-const std::string kBaseUrlMap[]{"https://cloud.iexapis.com/", "https://sandbox.iexapis.com"};
+const std::string kBaseUrlMap[]{"https://cloud.iexapis.com/", "https://sandbox.iexapis.com/"};
 
 const std::string kVersionUrlMap[]{"stable", /*"latest", */ "v1", "beta"};
 
@@ -64,7 +64,7 @@ void AppendParams(curl::Url::Params& params, const Endpoint::Options& options)
   params.reserve(params.size() + options.size());
   for (const auto& opt : options)
   {
-    params.insert(curl::Url::Param(opt->GetName(), {opt->GetValueAsString()}));
+    params.insert(curl::Url::Param(opt.GetName(), {opt.GetValue()}));
   }
 }
 

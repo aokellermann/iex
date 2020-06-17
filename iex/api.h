@@ -18,6 +18,7 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include <ios>
 
 #include "iex/api/forward.h"
 #include "iex/common.h"
@@ -137,44 +138,41 @@ class Endpoint
   using TypeMap = std::unordered_map<Type, T>;
 
   /**
-   * Abstract interface used by Option to generate Url Params.
+   * Used to generate Url Params.
    */
-  struct OptionBase
+  class OptionBase
   {
-    virtual ~OptionBase() = 0;
+   public:
+    OptionBase(std::string name, std::string value) : pair_(std::make_pair(std::move(name), std::move(value))) {}
 
-    [[nodiscard]] virtual std::string GetName() const = 0;
+    virtual ~OptionBase() = default;
 
-    [[nodiscard]] virtual std::string GetValueAsString() const = 0;
+    [[nodiscard]] virtual std::string GetName() const noexcept { return pair_.first; }
+
+    [[nodiscard]] virtual std::string GetValue() const noexcept { return pair_.second; }
+
+   private:
+    NamedPair<std::string> pair_;
   };
 
   template <typename T>
-  class Option : OptionBase
+  class Option : public OptionBase
   {
    public:
-    explicit Option(NamedPair<T> named_pair) : pair_(std::move(named_pair)) {}
-
-    Option(std::string name, T value) : pair_(std::make_pair(std::move(name), std::move(value))) {}
+    Option(const std::string& name, const T& value) : OptionBase(name, GetValueAsString(value)) {}
 
     ~Option() override = default;
 
-    [[nodiscard]] std::string GetName() const override { return pair_.first; }
-
-    [[nodiscard]] std::string GetValueAsString() const override
+   private:
+    [[nodiscard]] static std::string GetValueAsString(const T& value)
     {
       std::stringstream sstr;
-      sstr << pair_.second;
+      sstr << std::boolalpha << value;  // Use std::boolalpha to print bools as true/false rather than 1/0
       return sstr.str();
     }
-
-   private:
-    const NamedPair<T> pair_;
   };
 
-  template <typename... Ts>
-  using OptionSet = std::tuple<Option<Ts>...>;
-
-  using Options = std::vector<std::shared_ptr<OptionBase>>;
+  using Options = std::vector<OptionBase>;
 
   // endregion Types
 

@@ -15,12 +15,16 @@ namespace api = iex::api;
 TEST(Quote, GetWithoutTemplate)
 {
   api::Symbol sym("tsla");
-  api::SymbolRequest req{sym, {api::Endpoint::Type::QUOTE}};
+  api::SymbolRequest req(
+      sym,
+      api::Request{
+          api::Endpoint::Type::QUOTE,
+          api::RequestOptions{api::Endpoint::Options{api::Quote::DisplayPercentOption()}, {}, api::DataType::SANDBOX}});
   auto response = api::Get(req);
   EXPECT_EQ(response.second, iex::ErrorCode());
   ASSERT_TRUE(response.second.Success());
 
-  const auto *const sym_ptr = response.first.Get(sym);
+  const auto* const sym_ptr = response.first.Get(sym);
   ASSERT_NE(sym_ptr, nullptr);
 
   const auto end_ptr = sym_ptr->Get<api::Endpoint::Type::QUOTE>();
@@ -29,7 +33,9 @@ TEST(Quote, GetWithoutTemplate)
 
 TEST(Quote, GetWithTemplate)
 {
-  auto response = api::Get<api::Endpoint::Type::QUOTE>(api::Symbol("tsla"));
+  auto response = api::Get<api::Endpoint::Type::QUOTE>(
+      api::Symbol("tsla"),
+      api::RequestOptions{{}, {}, api::DataType::SANDBOX});
   EXPECT_EQ(response.second, iex::ErrorCode());
   ASSERT_TRUE(response.second.Success());
 
@@ -39,7 +45,8 @@ TEST(Quote, GetWithTemplate)
 
 TEST(Quote, AllFields)
 {
-  const char* json_s = "{\n"
+  const char* json_s =
+      "{\n"
       "  \"symbol\": \"AAPL\",\n"
       "  \"companyName\": \"Apple, Inc.\",\n"
       "  \"primaryExchange\": \"NASDAQ\",\n"

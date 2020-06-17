@@ -155,6 +155,14 @@ class Quote : public SymbolEndpoint
   }
 
   ~Quote() override = default;
+
+  /**
+   * All percentage values will be multiplied by a factor of 100
+   */
+  struct DisplayPercentOption : Option<bool>
+  {
+    DisplayPercentOption() : Option<bool>("displayPercent", true) {}
+  };
 };
 
 template <>
