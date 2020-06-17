@@ -135,7 +135,7 @@ TEST(Env, IllegalNamesAndValues)
 int main(int argc, char** argv)
 {
   const auto ec = iex::api::Init(iex::api::key::Keychain::EnvironmentFlag());
-  if (ec.Failure())
+  if (ec.Failure() || !iex::api::IsReadyForUse())
   {
     return 1;
   }

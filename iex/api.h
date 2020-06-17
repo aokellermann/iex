@@ -28,28 +28,29 @@ namespace iex::api
 {
 // region Common Types
 
+// region Symbol
+
+/**
+ * Represents a security's symbol. In the case of most funds, this corresponds to it's ticker.
+ * @see https://en.wikipedia.org/wiki/Ticker_symbol
+ * @example "TSLA", "BRK.A", "AIG+"
+ */
 class Symbol
 {
  public:
   Symbol() = default;
 
-  explicit Symbol(const char* sym) : Symbol(std::string(sym == nullptr ? "" : sym)) {}
+  explicit Symbol(std::string sym);
 
-  explicit Symbol(std::string sym) : impl_(std::move(sym))
-  {
-    for (auto& c : impl_)
-    {
-      c = std::toupper(static_cast<unsigned char>(c));
-    }
-  }
+  void Set(std::string sym);
 
   [[nodiscard]] const std::string& Get() const noexcept { return impl_; }
 
-  bool operator==(const Symbol& other) const { return Get() == other.Get(); }
+  inline bool operator==(const Symbol& other) const { return Get() == other.Get(); }
 
   struct Hasher
   {
-    std::size_t operator()(const Symbol& s) const { return std::hash<std::string>()(s.Get()); }
+    std::size_t operator()(const Symbol& s) const noexcept { return std::hash<std::string>()(s.Get()); }
   };
 
  private:
@@ -61,13 +62,9 @@ using SymbolSet = std::unordered_set<Symbol, Symbol::Hasher>;
 template <typename T>
 using SymbolMap = std::unordered_map<Symbol, T, Symbol::Hasher>;
 
-/**
- * Represents a timestamp in milliseconds.
- *
- * IEX timestamps are given in unix time with milliseconds.
- */
-using Timestamp = std::chrono::milliseconds;
+// endregion Symbol
 
+// Some generic types
 using Price = double;
 using Volume = uint64_t;
 using Percent = double;
@@ -78,7 +75,7 @@ using Percent = double;
 enum Version
 {
   STABLE,
-  // LATEST,
+  // LATEST,  // This doesn't work as of 6/16/20. See https://github.com/iexg/IEX-API/issues/1189
   V1,
   BETA
 };
@@ -305,17 +302,28 @@ struct AggregatedResponses
 // region Interface
 
 /**
- * This function must be called once at program startup, before any other threads have been created.
- * @return ErrorCode
+ * This or the other Init() function must be called once at program startup, before any other threads have been created.
+ * @return ErrorCode denoting whether initialization is successful. If failure, this library will not be able to
+ * function properly and the program should exit.
  */
 ErrorCode Init(const key::Keychain::EnvironmentFlag&);
 
 /**
- * This function must be called once at program startup, before any other threads have been created.
- * @return ErrorCode
+ * This or the other Init() function must be called once at program startup, before any other threads have been created.
+ * @param keychain_directory The directory to use to store API keys.
+ * @return ErrorCode denoting whether initialization is successful. If failure, this library will not be able to
+ * function properly and the program should exit.
  */
-ErrorCode Init(file::Directory directory = file::Directory::HOME);
+ErrorCode Init(file::Directory keychain_directory = file::Directory::HOME);
 
+/**
+ * @see api::key::Keychain::Set
+ */
+ErrorCode SetKey(key::Keychain::KeyType type, const key::Keychain::Key& key);
+
+/**
+ * @return True if all API keys are set or false otherwise.
+ */
 bool IsReadyForUse();
 
 ValueWithErrorCode<AggregatedResponses> Get(const AggregatedRequests& requests);

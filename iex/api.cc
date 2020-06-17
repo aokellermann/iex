@@ -20,9 +20,26 @@ namespace iex::api
 {
 namespace
 {
+// region Utils
+
+std::string& ToUpper(std::string& str)
+{
+  for (auto& c : str)
+  {
+    c = std::toupper(static_cast<unsigned char>(c));
+  }
+
+  return str;
+}
+
+// endregion Utils
+
 // region Url Helpers
 
-key::Keychain* keychain;
+/**
+ * This is a pointer to a static singleton.
+ */
+key::Keychain* keychain = nullptr;
 
 const std::string kBaseUrlMap[]{"https://cloud.iexapis.com/", "https://sandbox.iexapis.com"};
 
@@ -42,16 +59,21 @@ ValueWithErrorCode<key::Keychain::Key> GetKey(DataType type)
                                                    : key::Keychain::KeyType::SANDBOX_SECRET);
 }
 
+void AppendParams(curl::Url::Params& params, const Endpoint::Options& options)
+{
+  params.reserve(params.size() + options.size());
+  for (const auto& opt : options)
+  {
+    params.insert(curl::Url::Param(opt->GetName(), {opt->GetValueAsString()}));
+  }
+}
+
 curl::Url GetUrl(const Endpoint::Type& type, const RequestOptions& options)
 {
   std::string url_string =
       kBaseUrlMap[options.data_type] + kVersionUrlMap[options.version] + '/' + kEndpoints[type]->GetName();
   curl::Url::Params params;
-  params.reserve(options.options.size());
-  for (const auto& opt : options.options)
-  {
-    params.insert(curl::Url::Param(opt->GetName(), {opt->GetValueAsString()}));
-  }
+  AppendParams(params, options.options);
 
   return curl::Url(std::move(url_string), std::move(params));
 }
@@ -67,11 +89,7 @@ curl::Url GetUrl(const Symbol& symbol, const Endpoint::Type& type, const Request
   }
 
   curl::Url::Params params = {{"symbols", symbol.Get()}, {"types", kEndpoints[type]->GetName()}, {"token", key.first}};
-  params.reserve(params.size() + options.options.size());
-  for (const auto& opt : options.options)
-  {
-    params.insert(curl::Url::Param(opt->GetName(), {opt->GetValueAsString()}));
-  }
+  AppendParams(params, options.options);
 
   return curl::Url(std::move(url_string), std::move(params));
 }
@@ -163,6 +181,14 @@ ErrorCode InnerInit()
 // endregion Init
 }  // namespace
 
+// region Symbol
+
+Symbol::Symbol(std::string sym) : impl_(std::move(ToUpper(sym))) {}
+
+void Symbol::Set(std::string sym) { impl_ = std::move(ToUpper(sym)); }
+
+// endregion Symbol
+
 // region Interface
 
 ErrorCode Init(const key::Keychain::EnvironmentFlag&)
@@ -177,7 +203,7 @@ ErrorCode Init(const key::Keychain::EnvironmentFlag&)
   return keychain->KeychainValidity();
 }
 
-ErrorCode Init(file::Directory directory)
+ErrorCode Init(file::Directory keychain_directory)
 {
   auto ec = InnerInit();
   if (ec.Failure())
@@ -185,11 +211,21 @@ ErrorCode Init(file::Directory directory)
     return ec;
   }
 
-  keychain = &singleton::GetInstance<key::Keychain>(directory);
+  keychain = &singleton::GetInstance<key::Keychain>(keychain_directory);
   return keychain->KeychainValidity();
 }
 
-bool IsReadyForUse() { return keychain->KeychainValidity().Success() && keychain->Populated(); }
+ErrorCode SetKey(key::Keychain::KeyType type, const key::Keychain::Key& key)
+{
+  if (keychain == nullptr)
+  {
+    return ErrorCode{"Keychain not initialized"};
+  }
+
+  return keychain->Set(type, key);
+}
+
+bool IsReadyForUse() { return keychain != nullptr && keychain->KeychainValidity().Success() && keychain->Populated(); }
 
 ValueWithErrorCode<AggregatedResponses> Get(const AggregatedRequests& requests)
 {
