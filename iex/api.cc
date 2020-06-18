@@ -23,6 +23,11 @@ namespace
 {
 // region Url Helpers
 
+using Url = curl::Url;
+using Param = curl::Url::Param;
+using Params = curl::Url::Params;
+using UrlEndpointMap = curl::UrlMap<Endpoint::Type>;
+
 /**
  * This is a pointer to a static singleton.
  */
@@ -35,7 +40,7 @@ const std::string kVersionUrlMap[]{"stable", /*"latest", */ "v1", "beta"};
 const std::vector<const Endpoint*> kEndpoints{&singleton::GetInstance<SystemStatus>(),
                                               &singleton::GetInstance<Quote>()};
 
-ValueWithErrorCode<key::Keychain::Key> GetKey(DataType type)
+ValueWithErrorCode<key::Keychain::Key> GetKey(const DataType type)
 {
   if (keychain == nullptr)
   {
@@ -46,55 +51,62 @@ ValueWithErrorCode<key::Keychain::Key> GetKey(DataType type)
                                                    : key::Keychain::KeyType::SANDBOX_SECRET);
 }
 
-void AppendParams(curl::Url::Params& params, const Endpoint::Options& options)
+void AppendParams(Params& params, const Endpoint::Options& options)
 {
   params.reserve(params.size() + options.size());
   for (const auto& opt : options)
   {
-    params.insert(curl::Url::Param(opt.GetName(), {opt.GetValue()}));
+    params.insert(Param(opt.GetName(), {opt.GetValue()}));
   }
 }
 
-curl::Url GetUrl(const Endpoint::Type& type, const RequestOptions& options)
+Url GetUrl(const Endpoint::Type& type, const RequestOptions& options)
 {
   std::string url_string =
       kBaseUrlMap[options.data_type] + kVersionUrlMap[options.version] + '/' + kEndpoints[type]->GetName();
-  curl::Url::Params params;
+
+  const auto key = GetKey(options.data_type);
+  if (key.second.Failure())
+  {
+    return Url{""};  // Invalid
+  }
+
+  Params params{{"token", key.first}};
   AppendParams(params, options.options);
 
-  return curl::Url(std::move(url_string), std::move(params));
+  return Url(std::move(url_string), std::move(params));
 }
 
-curl::Url GetUrl(const Symbol& symbol, const Endpoint::Type& type, const RequestOptions& options)
+Url GetUrl(const Symbol& symbol, const Endpoint::Type& type, const RequestOptions& options)
 {
   std::string url_string = kBaseUrlMap[options.data_type] + kVersionUrlMap[options.version] + "/stock/market/batch";
 
   const auto key = GetKey(options.data_type);
   if (key.second.Failure())
   {
-    return curl::Url{""};  // Invalid
+    return Url{""};  // Invalid
   }
 
-  curl::Url::Params params = {{"symbols", symbol.Get()}, {"types", kEndpoints[type]->GetName()}, {"token", key.first}};
+  Params params = {{"symbols", symbol.Get()}, {"types", kEndpoints[type]->GetName()}, {"token", key.first}};
   AppendParams(params, options.options);
 
-  return curl::Url(std::move(url_string), std::move(params));
+  return Url(std::move(url_string), std::move(params));
 }
 
-curl::UrlMap<Endpoint::Type> GetUrls(const AggregatedRequests& requests)
+UrlEndpointMap GetUrls(const AggregatedRequests& requests)
 {
   // In the future, this function may call another file/class to optimize calls.
   // For now, it performs no optimization.
 
   // Only stock endpoint may be batch called according to documentation. https://iexcloud.io/docs/api/#batch-requests
 
-  curl::UrlMap<Endpoint::Type> url_map;
+  UrlEndpointMap url_map;
   url_map.reserve(requests.requests.size() + requests.symbol_requests.size());
 
   // First, create non-symbol-related Urls.
   for (const auto& [type, opts] : requests.requests)
   {
-    curl::Url url = GetUrl(type, opts);
+    Url url = GetUrl(type, opts);
     if (url.Validity().Success())
     {
       url_map.emplace(std::move(url), type);
@@ -105,7 +117,7 @@ curl::UrlMap<Endpoint::Type> GetUrls(const AggregatedRequests& requests)
   {
     for (const auto& [type, opts] : reqs)
     {
-      curl::Url url = GetUrl(symbol, type, opts);
+      Url url = GetUrl(symbol, type, opts);
       if (url.Validity().Success())
       {
         url_map.emplace(std::move(url), type);
@@ -156,10 +168,10 @@ ValueWithErrorCode<EndpointPtr<E>> EndpointFactory(const json::Json& input_json,
 
 ErrorCode InnerInit()
 {
-  const auto ec = curl::Init();
+  auto ec = curl::Init();
   if (ec.Failure())
   {
-    return ErrorCode("iex::Init failed", ec);
+    return ErrorCode("iex::Init failed", std::move(ec));
   }
 
   return {};

@@ -65,6 +65,9 @@ using SymbolMap = std::unordered_map<Symbol, T, Symbol::Hasher>;
 
 // endregion Symbol
 
+// iex types
+using Keychain = key::Keychain;
+
 // Some generic types
 using Price = double;
 using Volume = uint64_t;
@@ -270,6 +273,7 @@ class Responses
  private:
   Endpoint::TypeMap<EndpointPtr<>> endpoint_map_;
 };
+
 class SymbolResponses
 {
  public:
@@ -304,7 +308,7 @@ struct AggregatedResponses
  * @return ErrorCode denoting whether initialization is successful. If failure, this library will not be able to
  * function properly and the program should exit.
  */
-ErrorCode Init(const key::Keychain::EnvironmentFlag&);
+ErrorCode Init(const Keychain::EnvironmentFlag&);
 
 /**
  * This or the other Init() function must be called once at program startup, before any other threads have been created.
@@ -315,9 +319,9 @@ ErrorCode Init(const key::Keychain::EnvironmentFlag&);
 ErrorCode Init(file::Directory keychain_directory = file::Directory::HOME);
 
 /**
- * @see api::key::Keychain::Set
+ * @see api::Keychain::Set
  */
-ErrorCode SetKey(key::Keychain::KeyType type, const key::Keychain::Key& key);
+ErrorCode SetKey(Keychain::KeyType type, const Keychain::Key& key);
 
 /**
  * @return True if all API keys are set or false otherwise.
