@@ -9,6 +9,7 @@
 #include <functional>
 #include <unordered_map>
 
+#include "iex/api/company.h"
 #include "iex/api/quote.h"
 #include "iex/api/system_status.h"
 #include "iex/curl_wrapper.h"
@@ -38,7 +39,8 @@ const std::string kBaseUrlMap[]{"https://cloud.iexapis.com/", "https://sandbox.i
 const std::string kVersionUrlMap[]{"stable", /*"latest", */ "v1", "beta"};
 
 const std::vector<const Endpoint*> kEndpoints{&singleton::GetInstance<SystemStatus>(),
-                                              &singleton::GetInstance<Quote>()};
+                                              &singleton::GetInstance<Quote>(),
+                                              &singleton::GetInstance<Company>()};
 
 ValueWithErrorCode<key::Keychain::Key> GetKey(const DataType type)
 {
@@ -284,6 +286,19 @@ ValueWithErrorCode<AggregatedResponses> Get(const AggregatedRequests& requests)
         }
 
         aggregated_responses.symbol_responses.Put<Endpoint::Type::QUOTE>(new_endpoint_ptr.first, symbol);
+        break;
+      }
+
+      case Endpoint::Type::COMPANY:
+      {
+        const auto symbol = Symbol(json.first.items().begin().key());
+        auto new_endpoint_ptr = EndpointFactory<Company>(*json.first.items().begin().value().items().begin(), symbol);
+        if (new_endpoint_ptr.second.Failure())
+        {
+          return {{}, {"api::Get() failed", std::move(new_endpoint_ptr.second)}};
+        }
+
+        aggregated_responses.symbol_responses.Put<Endpoint::Type::COMPANY>(new_endpoint_ptr.first, symbol);
         break;
       }
     }

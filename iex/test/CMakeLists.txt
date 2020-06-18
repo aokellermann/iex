@@ -7,6 +7,7 @@ add_executable(unit_test
         keychain_test.cc
         system_status_test.cc
         quote_test.cc
+        company_test.cc
         )
 target_link_libraries(unit_test ${_link_libraries})
 

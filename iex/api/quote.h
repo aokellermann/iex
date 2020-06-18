@@ -14,7 +14,7 @@
 namespace iex::api
 {
 /**
- * @see https://iexcloud.io/docs/api/#api-system-metadata
+ * @see https://iexcloud.io/docs/api/#quote
  *
  * Data format as of 6/11/20 during trading hours:
  * {

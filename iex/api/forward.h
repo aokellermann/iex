@@ -12,5 +12,7 @@ class Endpoint;
 
 class SystemStatus;
 
+class Company;
+
 class Quote;
 }  // namespace iex::api

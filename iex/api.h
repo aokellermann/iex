@@ -126,7 +126,12 @@ class Endpoint
     /**
      * @see https://iexcloud.io/docs/api/#quote
      */
-    QUOTE
+    QUOTE,
+
+    /**
+     * @see https://iexcloud.io/docs/api/#company
+     */
+    COMPANY,
   };
 
   /**
@@ -217,6 +222,12 @@ template <>
 struct EndpointMap<Endpoint::Type::QUOTE>
 {
   using type = const Quote;
+};
+
+template <>
+struct EndpointMap<Endpoint::Type::COMPANY>
+{
+  using type = const Company;
 };
 
 template <Endpoint::Type T>
@@ -375,7 +386,8 @@ template <Endpoint::Type T>
 inline ValueWithErrorCode<EndpointPtr<EndpointTypename<T>>> Get(const Symbol& symbol,
                                                                 const RequestOptions& request_options = {})
 {
-  static_assert(T == Endpoint::Type::QUOTE, "T is not of valid type");
+  static_assert(T == Endpoint::Type::QUOTE ||
+                T == Endpoint::Type::COMPANY, "T is not of valid type");
 
   const auto response = Get(SymbolRequest{symbol, {T, request_options}});
   const auto* const ptr = response.first.Get(symbol);
