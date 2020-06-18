@@ -47,6 +47,7 @@ message(STATUS "IEX_BUILD_TESTING: ${IEX_BUILD_TESTING}")
 # Set library headers and sources.
 set(iex_headers
         common.h
+        utils.h
         curl_wrapper.h
         file_serializable.h
         env.h

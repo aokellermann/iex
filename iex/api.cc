@@ -15,25 +15,12 @@
 #include "iex/json_serializer.h"
 #include "iex/keychain.h"
 #include "iex/singleton.h"
+#include "iex/utils.h"
 
 namespace iex::api
 {
 namespace
 {
-// region Utils
-
-std::string& ToUpper(std::string& str)
-{
-  for (auto& c : str)
-  {
-    c = std::toupper(static_cast<unsigned char>(c));
-  }
-
-  return str;
-}
-
-// endregion Utils
-
 // region Url Helpers
 
 /**
@@ -183,9 +170,9 @@ ErrorCode InnerInit()
 
 // region Symbol
 
-Symbol::Symbol(std::string sym) : impl_(std::move(ToUpper(sym))) {}
+Symbol::Symbol(std::string sym) : impl_(std::move(utils::ToUpper(sym))) {}
 
-void Symbol::Set(std::string sym) { impl_ = std::move(ToUpper(sym)); }
+void Symbol::Set(std::string sym) { impl_ = std::move(utils::ToUpper(sym)); }
 
 // endregion Symbol
 
