@@ -15,11 +15,9 @@ namespace api = iex::api;
 TEST(Quote, GetWithoutTemplate)
 {
   api::Symbol sym("tsla");
-  api::SymbolRequest req(
-      sym,
-      api::Request{
-          api::Endpoint::Type::QUOTE,
-          api::RequestOptions{api::Endpoint::Options{api::Quote::DisplayPercentOption()}, {}, api::DataType::SANDBOX}});
+  const auto opts =
+      api::RequestOptions{api::Endpoint::Options{api::Quote::DisplayPercentOption()}, {}, api::DataType::SANDBOX};
+  api::SymbolRequest req(sym, api::Request{api::Endpoint::Type::QUOTE, opts});
   auto response = api::Get(req);
   EXPECT_EQ(response.second, iex::ErrorCode());
   ASSERT_TRUE(response.second.Success());
@@ -27,15 +25,14 @@ TEST(Quote, GetWithoutTemplate)
   const auto* const sym_ptr = response.first.Get(sym);
   ASSERT_NE(sym_ptr, nullptr);
 
-  const auto end_ptr = sym_ptr->Get<api::Endpoint::Type::QUOTE>();
+  const auto end_ptr = sym_ptr->Get<api::Endpoint::Type::QUOTE>(opts);
   EXPECT_NE(end_ptr, nullptr);
 }
 
 TEST(Quote, GetWithTemplate)
 {
-  auto response = api::Get<api::Endpoint::Type::QUOTE>(
-      api::Symbol("tsla"),
-      api::RequestOptions{{}, {}, api::DataType::SANDBOX});
+  auto response =
+      api::Get<api::Endpoint::Type::QUOTE>(api::Symbol("tsla"), api::RequestOptions{{}, {}, api::DataType::SANDBOX});
   EXPECT_EQ(response.second, iex::ErrorCode());
   ASSERT_TRUE(response.second.Success());
 

@@ -210,28 +210,31 @@ struct SymbolEndpoint : Endpoint
 };
 
 template <Endpoint::Type>
-struct EndpointMap;
+struct EndpointTypedefMap;
 
 template <>
-struct EndpointMap<Endpoint::Type::SYSTEM_STATUS>
+struct EndpointTypedefMap<Endpoint::Type::SYSTEM_STATUS>
 {
   using type = const SystemStatus;
 };
 
 template <>
-struct EndpointMap<Endpoint::Type::QUOTE>
+struct EndpointTypedefMap<Endpoint::Type::QUOTE>
 {
   using type = const Quote;
 };
 
 template <>
-struct EndpointMap<Endpoint::Type::COMPANY>
+struct EndpointTypedefMap<Endpoint::Type::COMPANY>
 {
   using type = const Company;
 };
 
 template <Endpoint::Type T>
-using EndpointTypename = typename EndpointMap<T>::type;
+using EndpointTypename = typename EndpointTypedefMap<T>::type;
+
+template <typename T>
+using EndpointDataMap = std::unordered_map<Version, std::unordered_map<DataType, T>>;
 
 // endregion Endpoint
 
@@ -269,29 +272,39 @@ class Responses
 {
  public:
   template <Endpoint::Type T>
-  void Put(EndpointPtr<> ptr)
+  void Put(EndpointPtr<> ptr, const RequestOptions& options)
   {
-    endpoint_map_.emplace(T, std::move(ptr));
+    endpoint_map_[options.version][options.data_type].emplace(T, std::move(ptr));
   }
 
   template <Endpoint::Type T>
-  [[nodiscard]] EndpointPtr<EndpointTypename<T>> Get() const
+  [[nodiscard]] EndpointPtr<EndpointTypename<T>> Get(const RequestOptions& options = {}) const
   {
-    const auto iter = endpoint_map_.find(T);
-    return iter != endpoint_map_.end() ? std::dynamic_pointer_cast<EndpointTypename<T>>(iter->second) : nullptr;
+    const auto viter = endpoint_map_.find(options.version);
+    if (viter == endpoint_map_.end())
+    {
+      return nullptr;
+    }
+    const auto diter = viter->second.find(options.data_type);
+    if (diter == viter->second.end())
+    {
+      return nullptr;
+    }
+    const auto iter = diter->second.find(T);
+    return iter != diter->second.end() ? std::dynamic_pointer_cast<EndpointTypename<T>>(iter->second) : nullptr;
   }
 
  private:
-  Endpoint::TypeMap<EndpointPtr<>> endpoint_map_;
+  EndpointDataMap<Endpoint::TypeMap<EndpointPtr<>>> endpoint_map_;
 };
 
 class SymbolResponses
 {
  public:
   template <Endpoint::Type T>
-  void Put(EndpointPtr<> ptr, const Symbol& symbol)
+  void Put(EndpointPtr<> ptr, const RequestOptions& options, const Symbol& symbol)
   {
-    security_map_[symbol].Put<T>(std::move(ptr));
+    security_map_[symbol].Put<T>(std::move(ptr), options);
   }
 
   [[nodiscard]] const Responses* Get(const Symbol& symbol) const
@@ -379,15 +392,14 @@ inline ValueWithErrorCode<EndpointPtr<EndpointTypename<T>>> Get(const RequestOpt
   static_assert(T == Endpoint::Type::SYSTEM_STATUS, "T is not of valid type");
 
   const auto response = Get(Request{T, request_options});
-  return {response.first.Get<T>(), std::move(response.second)};
+  return {response.first.Get<T>(request_options), std::move(response.second)};
 }
 
 template <Endpoint::Type T>
 inline ValueWithErrorCode<EndpointPtr<EndpointTypename<T>>> Get(const Symbol& symbol,
                                                                 const RequestOptions& request_options = {})
 {
-  static_assert(T == Endpoint::Type::QUOTE ||
-                T == Endpoint::Type::COMPANY, "T is not of valid type");
+  static_assert(T == Endpoint::Type::QUOTE || T == Endpoint::Type::COMPANY, "T is not of valid type");
 
   const auto response = Get(SymbolRequest{symbol, {T, request_options}});
   const auto* const ptr = response.first.Get(symbol);
@@ -396,7 +408,7 @@ inline ValueWithErrorCode<EndpointPtr<EndpointTypename<T>>> Get(const Symbol& sy
     return {{}, ErrorCode{"SymbolResponses::Get return nullptr"}};
   }
 
-  return {ptr->Get<T>(), std::move(response.second)};
+  return {ptr->Get<T>(request_options), std::move(response.second)};
 }
 
 // endregion Interface

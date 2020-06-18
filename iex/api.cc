@@ -27,7 +27,7 @@ namespace
 using Url = curl::Url;
 using Param = curl::Url::Param;
 using Params = curl::Url::Params;
-using UrlEndpointMap = curl::UrlMap<Endpoint::Type>;
+using UrlEndpointMap = curl::UrlMap<Endpoint::TypeSet>;
 
 /**
  * This is a pointer to a static singleton.
@@ -38,8 +38,7 @@ const std::string kBaseUrlMap[]{"https://cloud.iexapis.com/", "https://sandbox.i
 
 const std::string kVersionUrlMap[]{"stable", /*"latest", */ "v1", "beta"};
 
-const std::vector<const Endpoint*> kEndpoints{&singleton::GetInstance<SystemStatus>(),
-                                              &singleton::GetInstance<Quote>(),
+const std::vector<const Endpoint*> kEndpoints{&singleton::GetInstance<SystemStatus>(), &singleton::GetInstance<Quote>(),
                                               &singleton::GetInstance<Company>()};
 
 ValueWithErrorCode<key::Keychain::Key> GetKey(const DataType type)
@@ -79,7 +78,7 @@ Url GetUrl(const Endpoint::Type& type, const RequestOptions& options)
   return Url(std::move(url_string), std::move(params));
 }
 
-Url GetUrl(const Symbol& symbol, const Endpoint::Type& type, const RequestOptions& options)
+Url GetUrl(const SymbolSet& symbols, const Endpoint::TypeSet& types, const RequestOptions& options)
 {
   std::string url_string = kBaseUrlMap[options.data_type] + kVersionUrlMap[options.version] + "/stock/market/batch";
 
@@ -89,45 +88,99 @@ Url GetUrl(const Symbol& symbol, const Endpoint::Type& type, const RequestOption
     return Url{""};  // Invalid
   }
 
-  Params params = {{"symbols", symbol.Get()}, {"types", kEndpoints[type]->GetName()}, {"token", key.first}};
+  std::unordered_set<std::string> syms;
+  syms.reserve(symbols.size());
+  for (const auto& sym : symbols)
+  {
+    syms.insert(sym.Get());
+  }
+
+  std::unordered_set<std::string> ts;
+  ts.reserve(types.size());
+  for (const auto& t : types)
+  {
+    ts.insert(kEndpoints[t]->GetName());
+  }
+
+  Params params = {{"symbols", syms.begin(), syms.end()}, {"types", ts.begin(), ts.end()}, {"token", key.first}};
   AppendParams(params, options.options);
 
   return Url(std::move(url_string), std::move(params));
 }
 
-UrlEndpointMap GetUrls(const AggregatedRequests& requests)
+EndpointDataMap<UrlEndpointMap> GetUrls(const Requests& requests)
+{
+  EndpointDataMap<UrlEndpointMap> url_map;
+
+  for (const auto& [type, opts] : requests)
+  {
+    Url url = GetUrl(type, opts);
+    if (url.Validity().Success())
+    {
+      url_map[opts.version][opts.data_type][url].insert(type);
+    }
+  }
+
+  return url_map;
+}
+
+SymbolMap<EndpointDataMap<UrlEndpointMap>> GetUrls(const SymbolRequests& requests)
 {
   // In the future, this function may call another file/class to optimize calls.
   // For now, it performs no optimization.
 
   // Only stock endpoint may be batch called according to documentation. https://iexcloud.io/docs/api/#batch-requests
 
-  UrlEndpointMap url_map;
-  url_map.reserve(requests.requests.size() + requests.symbol_requests.size());
-
-  // First, create non-symbol-related Urls.
-  for (const auto& [type, opts] : requests.requests)
+  struct BatchMember
   {
-    Url url = GetUrl(type, opts);
-    if (url.Validity().Success())
-    {
-      url_map.emplace(std::move(url), type);
-    }
-  }
+    const Symbol& symbol;
+    const Endpoint::Type& type;
+    const Endpoint::Options& opts;
+  };
 
-  for (const auto& [symbol, reqs] : requests.symbol_requests)
+  EndpointDataMap<std::vector<BatchMember>> batch_map;
+  for (const auto& [symbol, reqs] : requests)
   {
     for (const auto& [type, opts] : reqs)
     {
-      Url url = GetUrl(symbol, type, opts);
+      batch_map[opts.version][opts.data_type].emplace_back(BatchMember{symbol, type, opts.options});
+    }
+  }
+
+  SymbolMap<EndpointDataMap<UrlEndpointMap>> symbol_endpoint_map;
+
+  SymbolSet symbols;
+  Endpoint::TypeSet types;
+  Endpoint::Options options;
+  for (const auto& [version, data_map] : batch_map)
+  {
+    for (const auto& [data_type, members] : data_map)
+    {
+      symbols.clear();
+      types.clear();
+      options.clear();
+      symbols.reserve(members.size());
+      types.reserve(members.size());
+
+      for (const auto& member : members)
+      {
+        symbols.insert(member.symbol);
+        types.insert(member.type);
+        options.insert(options.end(), member.opts.begin(), member.opts.end());
+      }
+
+      Url url = GetUrl(symbols, types, RequestOptions{options, version, data_type});
       if (url.Validity().Success())
       {
-        url_map.emplace(std::move(url), type);
+        for (const auto& symbol : symbols)
+        {
+          symbol_endpoint_map[symbol][version][data_type][url].insert(types.begin(), types.end());
+        }
       }
     }
   }
 
-  return url_map;
+  return symbol_endpoint_map;
 }
 
 // endregion Url Helpers
@@ -162,6 +215,86 @@ ValueWithErrorCode<EndpointPtr<E>> EndpointFactory(const json::Json& input_json,
   {
     return {nullptr, ErrorCode("SymbolEndpoint::Deserialize() failed", {"exception", ErrorCode(e.what())})};
   }
+}
+
+ErrorCode PutEndpoint(AggregatedResponses& aggregated_responses, const curl::GetMap& get_map, const Version& version,
+                      const DataType& data_type, const Url& url, const Endpoint::TypeSet& types,
+                      const Symbol& symbol = {})
+{
+  const auto url_json = get_map.find(url);
+  if (url_json == get_map.end())
+  {
+    return ErrorCode{"Url not found in response"};
+  }
+
+  if (url_json->second.second.Failure())
+  {
+    return url_json->second.second;
+  }
+
+  const auto& json = url_json->second.first;
+  const json::Json* jsym = symbol.Get().empty() ? nullptr : &(*json.find(symbol.Get()));
+
+  for (const auto& type : types)
+  {
+    const json::Json* jendpoint = jsym == nullptr ? nullptr : &(*jsym->find(kEndpoints[type]->GetName()));
+
+    switch (type)
+    {
+      case Endpoint::Type::QUOTE:
+      case Endpoint::Type::COMPANY:
+        if (jendpoint == nullptr)
+        {
+          return ErrorCode("Endpoint not found in response");
+        }
+        break;
+
+      default:
+        break;
+    }
+
+    ValueWithErrorCode<EndpointPtr<>> new_endpoint_ptr;
+    switch (type)
+    {
+      case Endpoint::Type::SYSTEM_STATUS:
+        new_endpoint_ptr = EndpointFactory<SystemStatus>(json);
+        break;
+      case Endpoint::Type::QUOTE:
+        new_endpoint_ptr = EndpointFactory<Quote>(*jendpoint);
+        break;
+      case Endpoint::Type::COMPANY:
+        new_endpoint_ptr = EndpointFactory<Company>(*jendpoint);
+        break;
+
+      default:
+        break;
+    }
+
+    if (new_endpoint_ptr.second.Failure())
+    {
+      return ErrorCode("Failed to create endpoint", std::move(new_endpoint_ptr.second));
+    }
+
+    std::pair<EndpointPtr<>, RequestOptions> put_pair{new_endpoint_ptr.first,
+                                                      RequestOptions{Endpoint::Options{}, version, data_type}};
+    switch (type)
+    {
+      case Endpoint::Type::SYSTEM_STATUS:
+        aggregated_responses.responses.Put<Endpoint::Type::SYSTEM_STATUS>(put_pair.first, put_pair.second);
+        break;
+      case Endpoint::Type::QUOTE:
+        aggregated_responses.symbol_responses.Put<Endpoint::Type::QUOTE>(put_pair.first, put_pair.second, symbol);
+        break;
+      case Endpoint::Type::COMPANY:
+        aggregated_responses.symbol_responses.Put<Endpoint::Type::COMPANY>(put_pair.first, put_pair.second, symbol);
+        break;
+
+      default:
+        break;
+    }
+  }
+
+  return {};
 }
 
 // endregion Endpoint Factories
@@ -235,12 +368,28 @@ ValueWithErrorCode<AggregatedResponses> Get(const AggregatedRequests& requests)
     return {{}, {"api::Get() failed", ErrorCode("AggregatedRequests is empty")}};
   }
 
-  const auto type_url_map = GetUrls(requests);
+  const auto non_batch_urls = GetUrls(requests.requests);
+  const auto batch_urls = GetUrls(requests.symbol_requests);
+
   curl::UrlSet url_set;
-  url_set.reserve(type_url_map.size());
-  for (const auto& [url, type] : type_url_map)
+  const auto append_urls = [&url_set](const EndpointDataMap<UrlEndpointMap>& edm) {
+    for (const auto& [version, dmap] : edm)
+    {
+      for (const auto& [data_type, urlmap] : dmap)
+      {
+        url_set.reserve(urlmap.size());
+        for (const auto& [url, _] : urlmap)
+        {
+          url_set.emplace(url);
+        }
+      }
+    }
+  };
+
+  append_urls(non_batch_urls);
+  for (const auto& [symbol, vmap] : batch_urls)
   {
-    url_set.emplace(url);
+    append_urls(vmap);
   }
 
   auto response = curl::Get(url_set);
@@ -251,57 +400,24 @@ ValueWithErrorCode<AggregatedResponses> Get(const AggregatedRequests& requests)
 
   AggregatedResponses aggregated_responses;
   auto get_map = response.first;
-  for (auto& [url, json] : get_map)
+
+  const auto put_endpoints = [&](const EndpointDataMap<UrlEndpointMap>& edm, const Symbol& sym = {}) {
+    for (const auto& [version, dmap] : edm)
+    {
+      for (const auto& [data_type, urlmap] : dmap)
+      {
+        for (const auto& [url, types] : urlmap)
+        {
+          PutEndpoint(aggregated_responses, get_map, version, data_type, url, types, sym);
+        }
+      }
+    }
+  };
+
+  put_endpoints(non_batch_urls);
+  for (const auto& [symbol, vmap] : batch_urls)
   {
-    const auto iter = type_url_map.find(url);
-    if (iter == type_url_map.end())
-    {
-      return {{}, {"api::Get() failed", ErrorCode("url unexpectedly not found in map")}};
-    }
-
-    switch (iter->second)
-    {
-      default:
-        break;
-
-      case Endpoint::Type::SYSTEM_STATUS:
-      {
-        auto new_endpoint_ptr = EndpointFactory<SystemStatus>(json.first);
-        if (new_endpoint_ptr.second.Failure())
-        {
-          return {{}, {"api::Get() failed", std::move(new_endpoint_ptr.second)}};
-        }
-
-        aggregated_responses.responses.Put<Endpoint::Type::SYSTEM_STATUS>(new_endpoint_ptr.first);
-        break;
-      }
-
-      case Endpoint::Type::QUOTE:
-      {
-        const auto symbol = Symbol(json.first.items().begin().key());
-        auto new_endpoint_ptr = EndpointFactory<Quote>(*json.first.items().begin().value().items().begin(), symbol);
-        if (new_endpoint_ptr.second.Failure())
-        {
-          return {{}, {"api::Get() failed", std::move(new_endpoint_ptr.second)}};
-        }
-
-        aggregated_responses.symbol_responses.Put<Endpoint::Type::QUOTE>(new_endpoint_ptr.first, symbol);
-        break;
-      }
-
-      case Endpoint::Type::COMPANY:
-      {
-        const auto symbol = Symbol(json.first.items().begin().key());
-        auto new_endpoint_ptr = EndpointFactory<Company>(*json.first.items().begin().value().items().begin(), symbol);
-        if (new_endpoint_ptr.second.Failure())
-        {
-          return {{}, {"api::Get() failed", std::move(new_endpoint_ptr.second)}};
-        }
-
-        aggregated_responses.symbol_responses.Put<Endpoint::Type::COMPANY>(new_endpoint_ptr.first, symbol);
-        break;
-      }
-    }
+    put_endpoints(vmap, symbol);
   }
 
   return {aggregated_responses, {}};
