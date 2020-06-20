@@ -77,6 +77,8 @@ struct EasyHandleDataPair : std::pair<EasyHandle, std::string>
     curl_easy_setopt(first.handle_, CURLOPT_ACCEPT_ENCODING, "");
     // Turns off internal signalling to ensure thread-safety. See here: https://curl.haxx.se/libcurl/c/threadsafe.html
     curl_easy_setopt(first.handle_, CURLOPT_NOSIGNAL, 1L);
+    // Treats HTTP codes greater than 400 as error. See https://iexcloud.io/docs/api/#error-codes
+    curl_easy_setopt(first.handle_, CURLOPT_FAILONERROR, 1L);
   }
 
   void AssignUrl(const Url& url)
@@ -161,7 +163,17 @@ class MultiHandleWrapper
           const CURLcode result = msg->data.result;
           if (result != CURLE_OK)
           {
-            ecs.emplace(*url, ErrorCode(curl_easy_strerror(result)));
+            int64_t http_code = 0;
+            if (result == CURLE_HTTP_RETURNED_ERROR)
+            {
+              curl_easy_getinfo(done_handle, CURLINFO_RESPONSE_CODE, &http_code);
+            }
+
+            ErrorCode ec = http_code == 0
+                               ? ErrorCode(curl_easy_strerror(result))
+                               : ErrorCode(curl_easy_strerror(result),
+                                           {"response code", ErrorCode(std::to_string(http_code))});
+            ecs.emplace(*url, std::move(ec));
           }
           curl_multi_remove_handle(multi_handle_.handle_, done_handle);
         }
