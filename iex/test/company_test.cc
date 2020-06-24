@@ -8,30 +8,28 @@
 
 #include <gtest/gtest.h>
 
-#include "iex/api.h"
-
-namespace api = iex::api;
+#include "iex/iex.h"
 
 TEST(Company, GetWithoutTemplate)
 {
-  api::Symbol sym("tsla");
-  const auto opts = api::RequestOptions{api::Endpoint::Options{}, {}, api::DataType::SANDBOX};
-  api::SymbolRequest req(sym, api::Request{api::Endpoint::Type::COMPANY, opts});
-  auto response = api::Get(req);
+  iex::Symbol sym("tsla");
+  const auto opts = iex::RequestOptions{iex::Endpoint::Options{}, {}, iex::DataType::SANDBOX};
+  iex::SymbolRequest req(sym, iex::Request{iex::Endpoint::Type::COMPANY, opts});
+  auto response = iex::Get(req);
   EXPECT_EQ(response.second, iex::ErrorCode());
   ASSERT_TRUE(response.second.Success());
 
   const auto* const sym_ptr = response.first.Get(sym);
   ASSERT_NE(sym_ptr, nullptr);
 
-  const auto end_ptr = sym_ptr->Get<api::Endpoint::Type::COMPANY>(opts);
+  const auto end_ptr = sym_ptr->Get<iex::Endpoint::Type::COMPANY>(opts);
   EXPECT_NE(end_ptr, nullptr);
 }
 
 TEST(Company, GetWithTemplate)
 {
   auto response =
-      api::Get<api::Endpoint::Type::COMPANY>(api::Symbol("tsla"), api::RequestOptions{{}, {}, api::DataType::SANDBOX});
+      iex::Get<iex::Endpoint::Type::COMPANY>(iex::Symbol("tsla"), iex::RequestOptions{{}, {}, iex::DataType::SANDBOX});
   EXPECT_EQ(response.second, iex::ErrorCode());
   ASSERT_TRUE(response.second.Success());
 
@@ -77,9 +75,9 @@ TEST(Company, AllFields)
       "}";
 
   iex::json::Json json = iex::json::Json::parse(json_s);
-  api::Company company(iex::json::JsonStorage{json});
+  iex::Company company(iex::json::JsonStorage{json});
 
-  using MemberType = api::Company::MemberType;
+  using MemberType = iex::Company::MemberType;
   EXPECT_TRUE(company.Get<MemberType::COMPANY_NAME>().has_value());
   EXPECT_TRUE(company.Get<MemberType::EXCHANGE>().has_value());
   EXPECT_TRUE(company.Get<MemberType::INDUSTRY>().has_value());

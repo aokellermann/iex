@@ -14,7 +14,7 @@
 /**
  * Contains methods and classes for reading and writing IEX API keys.
  */
-namespace iex::api::key
+namespace iex::key
 {
 /**
  * Container for managing IEX API keys.
@@ -117,4 +117,4 @@ class Keychain : private file::FileIoBase, private json::JsonBidirectionalSerial
    */
   ErrorCode ec_;
 };
-}  // namespace iex::api::key
+}  // namespace iex::key

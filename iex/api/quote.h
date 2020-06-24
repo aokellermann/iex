@@ -8,10 +8,10 @@
 
 #include <string>
 
-#include "iex/api.h"
+#include "iex/iex.h"
 #include "iex/json_serializer.h"
 
-namespace iex::api
+namespace iex
 {
 /**
  * @see https://iexcloud.io/docs/api/#quote
@@ -683,4 +683,4 @@ struct Quote::MemberMap<Quote::IS_US_MARKET_OPEN>
   static constexpr json::MemberName kName = "isUSMarketOpen";
 };
 
-}  // namespace iex::api
+}  // namespace iex

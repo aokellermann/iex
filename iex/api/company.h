@@ -8,10 +8,10 @@
 
 #include <string>
 
-#include "iex/api.h"
+#include "iex/iex.h"
 #include "iex/json_serializer.h"
 
-namespace iex::api
+namespace iex
 {
 /**
  * @see https://iexcloud.io/docs/api/#company
@@ -279,4 +279,4 @@ struct Company::MemberMap<Company::PHONE>
   using type = std::string;
   static constexpr json::MemberName kName = "phone";
 };
-}  // namespace iex::api
+}  // namespace iex

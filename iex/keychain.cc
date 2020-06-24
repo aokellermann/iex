@@ -11,7 +11,7 @@
 
 #include "iex/env.h"
 
-namespace iex::api::key
+namespace iex::key
 {
 namespace
 {
@@ -218,4 +218,4 @@ ErrorCode Keychain::Deserialize(const json::Json& input_json)
 
 // endregion Serialization
 
-}  // namespace iex::api::key
+}  // namespace iex::key

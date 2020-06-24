@@ -4,8 +4,6 @@
  * @copyright 2020 Antony Kellermann
  */
 
-#include "iex/api.h"
-
 #include <gtest/gtest.h>
 
 #include <mutex>
@@ -15,27 +13,26 @@
 #include "iex/api/company.h"
 #include "iex/api/quote.h"
 #include "iex/api/system_status.h"
-
-namespace api = iex::api;
+#include "iex/iex.h"
 
 TEST(Api, AggregatedAndBatch)
 {
-  api::AggregatedRequests areqs;
-  api::Symbol sym1("tsla");
-  api::Symbol sym2("aapl");
-  constexpr const auto kEp1 = api::Endpoint::Type::QUOTE;
-  constexpr const auto kEp2 = api::Endpoint::Type::COMPANY;
+  iex::AggregatedRequests areqs;
+  iex::Symbol sym1("tsla");
+  iex::Symbol sym2("aapl");
+  constexpr const auto kEp1 = iex::Endpoint::Type::QUOTE;
+  constexpr const auto kEp2 = iex::Endpoint::Type::COMPANY;
   const auto opts1 =
-      api::RequestOptions{api::Endpoint::Options{api::Quote::DisplayPercentOption()}, {}, api::DataType::SANDBOX};
-  const auto opts2 = api::RequestOptions{api::Endpoint::Options{}, {}, api::DataType::SANDBOX};
-  api::Requests reqs = api::Requests{{kEp1, opts1}, {kEp2, opts2}};
+      iex::RequestOptions{iex::Endpoint::Options{iex::Quote::DisplayPercentOption()}, {}, iex::DataType::SANDBOX};
+  const auto opts2 = iex::RequestOptions{iex::Endpoint::Options{}, {}, iex::DataType::SANDBOX};
+  iex::Requests reqs = iex::Requests{{kEp1, opts1}, {kEp2, opts2}};
   areqs.symbol_requests.emplace(sym1, reqs);
   areqs.symbol_requests.emplace(sym2, reqs);
 
-  constexpr const auto kEpStatus = api::Endpoint::Type::SYSTEM_STATUS;
+  constexpr const auto kEpStatus = iex::Endpoint::Type::SYSTEM_STATUS;
   areqs.requests.emplace(kEpStatus, opts2);
 
-  const auto response = api::Get(areqs);
+  const auto response = iex::Get(areqs);
   ASSERT_EQ(response.second, iex::ErrorCode());
 
   const auto sym_ptr1 = response.first.symbol_responses.Get(sym1)->Get<kEp1>(opts1);
@@ -49,19 +46,19 @@ TEST(Api, AggregatedAndBatch)
 
 TEST(Api, Batch)
 {
-  api::Symbol sym1("tsla");
-  api::Symbol sym2("aapl");
-  constexpr const auto kEp1 = api::Endpoint::Type::QUOTE;
-  constexpr const auto kEp2 = api::Endpoint::Type::COMPANY;
+  iex::Symbol sym1("tsla");
+  iex::Symbol sym2("aapl");
+  constexpr const auto kEp1 = iex::Endpoint::Type::QUOTE;
+  constexpr const auto kEp2 = iex::Endpoint::Type::COMPANY;
   const auto opts1 =
-      api::RequestOptions{api::Endpoint::Options{api::Quote::DisplayPercentOption()}, {}, api::DataType::SANDBOX};
-  const auto opts2 = api::RequestOptions{api::Endpoint::Options{}, {}, api::DataType::SANDBOX};
-  api::SymbolRequests sreqs;
-  api::Requests reqs = api::Requests{{kEp1, opts1}, {kEp2, opts2}};
+      iex::RequestOptions{iex::Endpoint::Options{iex::Quote::DisplayPercentOption()}, {}, iex::DataType::SANDBOX};
+  const auto opts2 = iex::RequestOptions{iex::Endpoint::Options{}, {}, iex::DataType::SANDBOX};
+  iex::SymbolRequests sreqs;
+  iex::Requests reqs = iex::Requests{{kEp1, opts1}, {kEp2, opts2}};
   sreqs.emplace(sym1, reqs);
   sreqs.emplace(sym2, reqs);
 
-  const auto response = api::Get(sreqs);
+  const auto response = iex::Get(sreqs);
   ASSERT_EQ(response.second, iex::ErrorCode());
 
   const auto sym_ptr1 = response.first.Get(sym1)->Get<kEp1>(opts1);
@@ -72,28 +69,28 @@ TEST(Api, Batch)
 
 TEST(Api, Multithread)
 {
-  constexpr const api::Endpoint::Type kEStatus = api::Endpoint::Type::SYSTEM_STATUS;
-  constexpr const api::Endpoint::Type kEQuote = api::Endpoint::Type::QUOTE;
-  constexpr const api::Endpoint::Type kECompany = api::Endpoint::Type::COMPANY;
+  constexpr const iex::Endpoint::Type kEStatus = iex::Endpoint::Type::SYSTEM_STATUS;
+  constexpr const iex::Endpoint::Type kEQuote = iex::Endpoint::Type::QUOTE;
+  constexpr const iex::Endpoint::Type kECompany = iex::Endpoint::Type::COMPANY;
 
-  std::array<api::Symbol, 5> symbols = {api::Symbol("tsla"), api::Symbol("aapl"), api::Symbol("msft"),
-                                        api::Symbol("amd"), api::Symbol("intc")};
-  std::array<api::Version, 3> versions = {api::Version::STABLE, api::Version::V1, api::Version::BETA};
-  std::array<api::DataType, 2> data_types = {api::DataType::AUTHENTIC, api::DataType::SANDBOX};
+  std::array<iex::Symbol, 5> symbols = {iex::Symbol("tsla"), iex::Symbol("aapl"), iex::Symbol("msft"),
+                                        iex::Symbol("amd"), iex::Symbol("intc")};
+  std::array<iex::Version, 3> versions = {iex::Version::STABLE, iex::Version::V1, iex::Version::BETA};
+  std::array<iex::DataType, 2> data_types = {iex::DataType::AUTHENTIC, iex::DataType::SANDBOX};
 
   std::mutex return_data_mutex;
-  std::vector<iex::ValueWithErrorCode<api::Responses>> return_data;
+  std::vector<iex::ValueWithErrorCode<iex::Responses>> return_data;
 
   std::mutex return_data_mutex_sym;
-  std::vector<iex::ValueWithErrorCode<api::SymbolResponses>> return_data_sym;
+  std::vector<iex::ValueWithErrorCode<iex::SymbolResponses>> return_data_sym;
 
-  const auto get_func = [&](const api::Request& request) {
-    auto resp = api::Get(request);
+  const auto get_func = [&](const iex::Request& request) {
+    auto resp = iex::Get(request);
     std::lock_guard lock(return_data_mutex);
     return_data.emplace_back(std::move(resp));
   };
-  const auto get_func_sym = [&](const api::SymbolRequest& request) {
-    auto resp = api::Get(request);
+  const auto get_func_sym = [&](const iex::SymbolRequest& request) {
+    auto resp = iex::Get(request);
     std::lock_guard lock(return_data_mutex_sym);
     return_data_sym.emplace_back(std::move(resp));
   };
@@ -104,15 +101,15 @@ TEST(Api, Multithread)
     for (const auto& sym : symbols)
     {
       threads.emplace_back(std::thread(
-          get_func_sym, api::SymbolRequest(sym, {kEQuote, api::RequestOptions{{}, version, api::DataType::SANDBOX}})));
+          get_func_sym, iex::SymbolRequest(sym, {kEQuote, iex::RequestOptions{{}, version, iex::DataType::SANDBOX}})));
       threads.emplace_back(
           std::thread(get_func_sym,
-                      api::SymbolRequest(sym, {kECompany, api::RequestOptions{{}, version, api::DataType::SANDBOX}})));
+                      iex::SymbolRequest(sym, {kECompany, iex::RequestOptions{{}, version, iex::DataType::SANDBOX}})));
     }
 
     for (const auto& data_type : data_types)
     {
-      threads.emplace_back(std::thread(get_func, api::Request{kEStatus, api::RequestOptions{{}, version, data_type}}));
+      threads.emplace_back(std::thread(get_func, iex::Request{kEStatus, iex::RequestOptions{{}, version, data_type}}));
     }
   }
 
@@ -130,7 +127,7 @@ TEST(Api, Multithread)
     {
       for (const auto& data_type : data_types)
       {
-        if (data.first.Get<kEStatus>(api::RequestOptions{{}, version, data_type}) != nullptr)
+        if (data.first.Get<kEStatus>(iex::RequestOptions{{}, version, data_type}) != nullptr)
         {
           found = true;
           break;
@@ -153,8 +150,8 @@ TEST(Api, Multithread)
         {
           const auto *const sym_ptr = data.first.Get(sym);
           if (sym_ptr != nullptr &&
-              (sym_ptr->Get<kEQuote>(api::RequestOptions{{}, version, data_type}) != nullptr ||
-              sym_ptr->Get<kECompany>(api::RequestOptions{{}, version, data_type}) != nullptr))
+              (sym_ptr->Get<kEQuote>(iex::RequestOptions{{}, version, data_type}) != nullptr ||
+              sym_ptr->Get<kECompany>(iex::RequestOptions{{}, version, data_type}) != nullptr))
           {
             found = true;
             break;

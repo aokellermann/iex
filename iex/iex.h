@@ -25,7 +25,7 @@
 #include "iex/json_serializer.h"
 #include "iex/keychain.h"
 
-namespace iex::api
+namespace iex
 {
 // region Common Types
 
@@ -413,4 +413,4 @@ inline ValueWithErrorCode<EndpointPtr<EndpointTypename<T>>> Get(const Symbol& sy
 
 // endregion Interface
 
-}  // namespace iex::api
+}  // namespace iex

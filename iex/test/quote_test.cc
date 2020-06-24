@@ -8,31 +8,29 @@
 
 #include <gtest/gtest.h>
 
-#include "iex/api.h"
-
-namespace api = iex::api;
+#include "iex/iex.h"
 
 TEST(Quote, GetWithoutTemplate)
 {
-  api::Symbol sym("tsla");
+  iex::Symbol sym("tsla");
   const auto opts =
-      api::RequestOptions{api::Endpoint::Options{api::Quote::DisplayPercentOption()}, {}, api::DataType::SANDBOX};
-  api::SymbolRequest req(sym, api::Request{api::Endpoint::Type::QUOTE, opts});
-  auto response = api::Get(req);
+      iex::RequestOptions{iex::Endpoint::Options{iex::Quote::DisplayPercentOption()}, {}, iex::DataType::SANDBOX};
+  iex::SymbolRequest req(sym, iex::Request{iex::Endpoint::Type::QUOTE, opts});
+  auto response = iex::Get(req);
   EXPECT_EQ(response.second, iex::ErrorCode());
   ASSERT_TRUE(response.second.Success());
 
   const auto* const sym_ptr = response.first.Get(sym);
   ASSERT_NE(sym_ptr, nullptr);
 
-  const auto end_ptr = sym_ptr->Get<api::Endpoint::Type::QUOTE>(opts);
+  const auto end_ptr = sym_ptr->Get<iex::Endpoint::Type::QUOTE>(opts);
   EXPECT_NE(end_ptr, nullptr);
 }
 
 TEST(Quote, GetWithTemplate)
 {
   auto response =
-      api::Get<api::Endpoint::Type::QUOTE>(api::Symbol("tsla"), api::RequestOptions{{}, {}, api::DataType::SANDBOX});
+      iex::Get<iex::Endpoint::Type::QUOTE>(iex::Symbol("tsla"), iex::RequestOptions{{}, {}, iex::DataType::SANDBOX});
   EXPECT_EQ(response.second, iex::ErrorCode());
   ASSERT_TRUE(response.second.Success());
 
@@ -102,9 +100,9 @@ TEST(Quote, AllFields)
       "}";
 
   iex::json::Json json = iex::json::Json::parse(json_s);
-  api::Quote quote(iex::json::JsonStorage{json});
+  iex::Quote quote(iex::json::JsonStorage{json});
 
-  using MemberType = api::Quote::MemberType;
+  using MemberType = iex::Quote::MemberType;
   EXPECT_TRUE(quote.Get<MemberType::COMPANY_NAME>().has_value());
   EXPECT_TRUE(quote.Get<MemberType::PRIMARY_EXCHANGE>().has_value());
   EXPECT_TRUE(quote.Get<MemberType::CALCULATION_PRICE>().has_value());

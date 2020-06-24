@@ -6,7 +6,7 @@
 
 #pragma once
 
-namespace iex::api
+namespace iex
 {
 class Endpoint;
 
@@ -15,4 +15,4 @@ class SystemStatus;
 class Company;
 
 class Quote;
-}  // namespace iex::api
+}  // namespace iex

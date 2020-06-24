@@ -4,7 +4,7 @@
  * @copyright 2020 Antony Kellermann
  */
 
-#include "api.h"
+#include "iex.h"
 
 #include <functional>
 #include <thread>
@@ -19,7 +19,7 @@
 #include "iex/singleton.h"
 #include "iex/utils.h"
 
-namespace iex::api
+namespace iex
 {
 namespace
 {
@@ -460,4 +460,4 @@ ValueWithErrorCode<AggregatedResponses> Get(const AggregatedRequests& requests)
 
 // endregion Interface
 
-}  // namespace iex::api
+}  // namespace iex

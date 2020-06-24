@@ -52,7 +52,7 @@ set(iex_headers
         file_serializable.h
         env.h
         keychain.h
-        api.h
+        iex.h
         api/system_status.h
         api/quote.h
         api/company.h
@@ -62,7 +62,7 @@ set(iex_sources
         file_serializable.cc
         env.cc
         keychain.cc
-        api.cc
+        iex.cc
         )
 
 # Specify source directory.

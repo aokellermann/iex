@@ -9,10 +9,10 @@
 #include <string>
 #include <utility>
 
-#include "iex/api.h"
+#include "iex/iex.h"
 #include "iex/json_serializer.h"
 
-namespace iex::api
+namespace iex
 {
 /**
  * @see https://iexcloud.io/docs/api/#api-system-metadata
@@ -83,4 +83,4 @@ struct SystemStatus::MemberMap<SystemStatus::CURRENT_MONTH_API_CALLS>
   static constexpr const char* const kName = "currentMonthAPICalls";
 };
 
-}  // namespace iex::api
+}  // namespace iex

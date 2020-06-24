@@ -11,10 +11,10 @@
 #include <unordered_set>
 #include <vector>
 
-#include "iex/api.h"
-#include "iex/keychain.h"
 #include "iex/common.h"
 #include "iex/env.h"
+#include "iex/iex.h"
+#include "iex/keychain.h"
 #include "iex/singleton.h"
 
 namespace env = iex::env;
@@ -134,8 +134,8 @@ TEST(Env, IllegalNamesAndValues)
 
 int main(int argc, char** argv)
 {
-  const auto ec = iex::api::Init(iex::api::key::Keychain::EnvironmentFlag());
-  if (ec.Failure() || !iex::api::IsReadyForUse())
+  const auto ec = iex::Init(iex::key::Keychain::EnvironmentFlag());
+  if (ec.Failure() || !iex::IsReadyForUse())
   {
     return 1;
   }
