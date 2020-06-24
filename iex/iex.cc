@@ -393,7 +393,7 @@ ValueWithErrorCode<AggregatedResponses> Get(const AggregatedRequests& requests)
 {
   if (requests.requests.empty() && requests.symbol_requests.empty())
   {
-    return {{}, {"api::Get() failed", ErrorCode("AggregatedRequests is empty")}};
+    return {{}, {"iex::Get() failed", ErrorCode("AggregatedRequests is empty")}};
   }
 
   const auto non_batch_urls = GetUrls(requests.requests);
@@ -428,7 +428,7 @@ ValueWithErrorCode<AggregatedResponses> Get(const AggregatedRequests& requests)
     const auto ts_begin = std::chrono::system_clock::now();
     if (response.second.Failure())
     {
-      return {{}, {"api::Get() failed", std::move(response.second)}};
+      return {{}, {"iex::Get() failed", std::move(response.second)}};
     }
 
     auto get_map = response.first;
