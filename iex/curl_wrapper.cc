@@ -169,10 +169,9 @@ class MultiHandleWrapper
               curl_easy_getinfo(done_handle, CURLINFO_RESPONSE_CODE, &http_code);
             }
 
-            ErrorCode ec = http_code == 0
-                               ? ErrorCode(curl_easy_strerror(result))
-                               : ErrorCode(curl_easy_strerror(result),
-                                           {"response code", ErrorCode(std::to_string(http_code))});
+            ErrorCode ec = http_code == 0 ? ErrorCode(curl_easy_strerror(result))
+                                          : ErrorCode(curl_easy_strerror(result),
+                                                      {"response code", ErrorCode(std::to_string(http_code))});
             ecs.emplace(*url, std::move(ec));
           }
           curl_multi_remove_handle(multi_handle_.handle_, done_handle);
