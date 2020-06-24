@@ -1,5 +1,5 @@
 /**
- * @file ohlc.h
+ * @file company.h
  * @author Antony Kellermann
  * @copyright 2020 Antony Kellermann
  */
