@@ -7,6 +7,7 @@
 #include "api.h"
 
 #include <functional>
+#include <thread>
 #include <unordered_map>
 
 #include "iex/api/company.h"
@@ -22,6 +23,33 @@ namespace iex::api
 {
 namespace
 {
+// region Timeout
+
+constexpr const std::chrono::milliseconds kIexTimeout(10);
+
+std::mutex last_api_call_mutex;
+
+/**
+ * Curls the given Urls.
+ *
+ * For now, this is a workaround for avoiding hitting IEX Cloud request limits.
+ * Ideally, this would be done through libcurl in a manner such as was
+ * suggested here: https://github.com/curl/curl/issues/3920, so we wouldn't need to loop over urls.
+ * to introduce a timeout. This approach is quite slow unfortunately...
+ * @see https://iexcloud.io/docs/api/#request-limits
+ * @param urls UrlSet
+ * @return GetMap
+ */
+ValueWithErrorCode<curl::GetMap> PerformCurl(const curl::Url& url)
+{
+  std::lock_guard lock(last_api_call_mutex);
+  auto response = curl::Get(curl::UrlSet{url});
+  std::this_thread::sleep_for(kIexTimeout);
+  return response;
+}
+
+// endregion Timeout
+
 // region Url Helpers
 
 using Url = curl::Url;
@@ -392,32 +420,39 @@ ValueWithErrorCode<AggregatedResponses> Get(const AggregatedRequests& requests)
     append_urls(vmap);
   }
 
-  auto response = curl::Get(url_set);
-  if (response.second.Failure())
-  {
-    return {{}, {"api::Get() failed", std::move(response.second)}};
-  }
-
   AggregatedResponses aggregated_responses;
-  auto get_map = response.first;
 
-  const auto put_endpoints = [&](const EndpointDataMap<UrlEndpointMap>& edm, const Symbol& sym = {}) {
-    for (const auto& [version, dmap] : edm)
+  for (const auto& current_url : url_set)
+  {
+    auto response = PerformCurl(current_url);
+    const auto ts_begin = std::chrono::system_clock::now();
+    if (response.second.Failure())
     {
-      for (const auto& [data_type, urlmap] : dmap)
+      return {{}, {"api::Get() failed", std::move(response.second)}};
+    }
+
+    auto get_map = response.first;
+
+    const auto put_endpoints = [&](const EndpointDataMap<UrlEndpointMap>& edm, const Symbol& sym = {}) {
+      for (const auto& [version, dmap] : edm)
       {
-        for (const auto& [url, types] : urlmap)
+        for (const auto& [data_type, urlmap] : dmap)
         {
-          PutEndpoint(aggregated_responses, get_map, version, data_type, url, types, sym);
+          for (const auto& [url, types] : urlmap)
+          {
+            PutEndpoint(aggregated_responses, get_map, version, data_type, url, types, sym);
+          }
         }
       }
-    }
-  };
+    };
 
-  put_endpoints(non_batch_urls);
-  for (const auto& [symbol, vmap] : batch_urls)
-  {
-    put_endpoints(vmap, symbol);
+    put_endpoints(non_batch_urls);
+    for (const auto& [symbol, vmap] : batch_urls)
+    {
+      put_endpoints(vmap, symbol);
+    }
+
+    const auto ts_end = std::chrono::system_clock::now();
   }
 
   return {aggregated_responses, {}};
