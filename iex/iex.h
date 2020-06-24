@@ -97,6 +97,8 @@ enum DataType
 
 // region Endpoint
 
+class Endpoint;
+
 template <typename E = Endpoint>
 using EndpointPtr = std::shared_ptr<const E>;
 

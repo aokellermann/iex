@@ -8,8 +8,6 @@
 
 namespace iex
 {
-class Endpoint;
-
 class SystemStatus;
 
 class Company;
