@@ -8,6 +8,8 @@
 
 namespace iex
 {
+class Symbols;
+
 class SystemStatus;
 
 class Company;

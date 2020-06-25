@@ -12,6 +12,7 @@
 
 #include "iex/api/company.h"
 #include "iex/api/quote.h"
+#include "iex/api/symbols.h"
 #include "iex/api/system_status.h"
 #include "iex/curl_wrapper.h"
 #include "iex/json_serializer.h"
@@ -66,7 +67,8 @@ const std::string kBaseUrlMap[]{"https://cloud.iexapis.com/", "https://sandbox.i
 
 const std::string kVersionUrlMap[]{"stable", /*"latest", */ "v1", "beta"};
 
-const std::vector<const Endpoint*> kEndpoints{&singleton::GetInstance<SystemStatus>(), &singleton::GetInstance<Quote>(),
+const std::vector<const Endpoint*> kEndpoints{&singleton::GetInstance<Symbols>(),
+                                              &singleton::GetInstance<SystemStatus>(), &singleton::GetInstance<Quote>(),
                                               &singleton::GetInstance<Company>()};
 
 ValueWithErrorCode<key::Keychain::Key> GetKey(const DataType type)
@@ -284,6 +286,9 @@ ErrorCode PutEndpoint(AggregatedResponses& aggregated_responses, const curl::Get
     ValueWithErrorCode<EndpointPtr<>> new_endpoint_ptr;
     switch (type)
     {
+      case Endpoint::Type::SYMBOLS:
+        new_endpoint_ptr = EndpointFactory<Symbols>(json);
+        break;
       case Endpoint::Type::SYSTEM_STATUS:
         new_endpoint_ptr = EndpointFactory<SystemStatus>(json);
         break;
@@ -307,6 +312,9 @@ ErrorCode PutEndpoint(AggregatedResponses& aggregated_responses, const curl::Get
                                                       RequestOptions{Endpoint::Options{}, version, data_type}};
     switch (type)
     {
+      case Endpoint::Type::SYMBOLS:
+        aggregated_responses.responses.Put<Endpoint::Type::SYMBOLS>(put_pair.first, put_pair.second);
+        break;
       case Endpoint::Type::SYSTEM_STATUS:
         aggregated_responses.responses.Put<Endpoint::Type::SYSTEM_STATUS>(put_pair.first, put_pair.second);
         break;

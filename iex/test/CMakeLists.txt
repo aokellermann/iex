@@ -9,6 +9,7 @@ add_executable(unit_test
         quote_test.cc
         company_test.cc
         api_test.cc
+        symbols_test.cc
         )
 target_link_libraries(unit_test ${_link_libraries})
 

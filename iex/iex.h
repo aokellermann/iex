@@ -121,6 +121,10 @@ class Endpoint
   enum Type
   {
     /**
+     * @see https://iexcloud.io/docs/api/#symbols
+     */
+    SYMBOLS,
+    /**
      * @see https://iexcloud.io/docs/api/#api-system-metadata
      */
     SYSTEM_STATUS,
@@ -213,6 +217,12 @@ struct SymbolEndpoint : Endpoint
 
 template <Endpoint::Type>
 struct EndpointTypedefMap;
+
+template <>
+struct EndpointTypedefMap<Endpoint::Type::SYMBOLS>
+{
+  using type = const Symbols;
+};
 
 template <>
 struct EndpointTypedefMap<Endpoint::Type::SYSTEM_STATUS>
@@ -391,7 +401,7 @@ inline ValueWithErrorCode<SymbolResponses> Get(const SymbolRequest& request)
 template <Endpoint::Type T>
 inline ValueWithErrorCode<EndpointPtr<EndpointTypename<T>>> Get(const RequestOptions& request_options = {})
 {
-  static_assert(T == Endpoint::Type::SYSTEM_STATUS, "T is not of valid type");
+  static_assert(T == Endpoint::Type::SYMBOLS || T == Endpoint::Type::SYSTEM_STATUS, "T is not of valid type");
 
   const auto response = Get(Request{T, request_options});
   return {response.first.Get<T>(request_options), std::move(response.second)};

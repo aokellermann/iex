@@ -8,6 +8,7 @@
 
 #include <nlohmann/json.hpp>
 #include <stdexcept>
+#include <type_traits>
 
 #include "iex/common.h"
 
@@ -76,11 +77,11 @@ class JsonStorage : public JsonDeserializable
   }
 
   template <typename T>
-  Member<T> SafeGetMember(MemberName member_name) const noexcept
+  static Member<T> SafeGetMember(const Json& json, const MemberName& member_name) noexcept
   {
     try
     {
-      const auto ref = json_.at(member_name);
+      const auto ref = json.at(member_name);
       if (ref.is_null())
       {
         return std::nullopt;
@@ -94,9 +95,21 @@ class JsonStorage : public JsonDeserializable
     }
   }
 
+  template <typename T>
+  Member<T> SafeGetMember(const MemberName& member_name) const noexcept
+  {
+    return SafeGetMember<T>(json_, member_name);
+  }
+
+  [[nodiscard]] auto Type() const noexcept { return json_.type(); }
+
+  [[nodiscard]] auto begin() const noexcept { return json_.begin(); }
+
+  [[nodiscard]] auto end() const noexcept { return json_.end(); }
+
  private:
   template <typename T>
-  Member<T> GetMember(Json::const_reference ref) const
+  static Member<T> GetMember(Json::const_reference& ref)
   {
     return ref.get<T>();
   }
@@ -105,7 +118,7 @@ class JsonStorage : public JsonDeserializable
 };
 
 template <>
-inline Member<Timestamp> JsonStorage::GetMember<Timestamp>(Json::const_reference ref) const
+inline Member<Timestamp> JsonStorage::GetMember<Timestamp>(Json::const_reference& ref)
 {
   const auto ms = ref.get<int64_t>();
 
