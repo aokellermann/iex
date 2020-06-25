@@ -174,6 +174,7 @@ class MultiHandleWrapper
 
             if (retry_behavior.max_retries > retries[*url] && retry_behavior.responses_to_retry.count(http_code))
             {
+              handles_in_use_.find(*url)->second.second.clear();
               curl_multi_remove_handle(multi_handle_.handle_, done_handle);
               curl_multi_add_handle(multi_handle_.handle_, done_handle);
               ++retries[*url];
