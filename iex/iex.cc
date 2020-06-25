@@ -433,7 +433,6 @@ ValueWithErrorCode<AggregatedResponses> Get(const AggregatedRequests& requests)
   for (const auto& current_url : url_set)
   {
     auto response = PerformCurl(current_url);
-    const auto ts_begin = std::chrono::system_clock::now();
     if (response.second.Failure())
     {
       return {{}, {"iex::Get() failed", std::move(response.second)}};
@@ -459,8 +458,6 @@ ValueWithErrorCode<AggregatedResponses> Get(const AggregatedRequests& requests)
     {
       put_endpoints(vmap, symbol);
     }
-
-    const auto ts_end = std::chrono::system_clock::now();
   }
 
   return {aggregated_responses, {}};
