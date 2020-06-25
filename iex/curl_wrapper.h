@@ -186,7 +186,8 @@ using GetMap = UrlMap<GetResponse>;
 /**
  * See templated Get function.
  */
-ValueWithErrorCode<GetMap> Get(const UrlSet& url_set, int max_connections = 0, const RetryBehavior& retry_behavior = {});
+ValueWithErrorCode<GetMap> Get(const UrlSet& url_set, int max_connections = 0,
+                               const RetryBehavior& retry_behavior = {});
 
 /**
  * Performs HTTP GET on target Urls, with max_connection maximum parallel HTTP connections.
@@ -197,7 +198,8 @@ ValueWithErrorCode<GetMap> Get(const UrlSet& url_set, int max_connections = 0, c
  * @return map of Url to corresponding returned data (with error code)
  */
 template <class InputIt>
-inline ValueWithErrorCode<GetMap> Get(InputIt urls_begin, InputIt urls_end, int max_connections = 0, const RetryBehavior& retry_behavior = {})
+inline ValueWithErrorCode<GetMap> Get(InputIt urls_begin, InputIt urls_end, int max_connections = 0,
+                                      const RetryBehavior& retry_behavior = {})
 {
   const UrlSet url_set(urls_begin, urls_end);
   return Get(url_set, max_connections, retry_behavior);
