@@ -144,6 +144,21 @@ using UrlSet = std::unordered_set<Url, UrlHasher, UrlEquality>;
 
 // endregion
 
+// region Retry
+
+/**
+ * The HTTP response number, such as 404 (Not Found).
+ */
+using HttpResponseCode = int64_t;
+
+struct RetryBehavior
+{
+  int max_retries = 0;
+  std::unordered_set<HttpResponseCode> responses_to_retry;
+};
+
+// endregion Retry
+
 // region Interface
 
 /**
@@ -171,7 +186,7 @@ using GetMap = UrlMap<GetResponse>;
 /**
  * See templated Get function.
  */
-ValueWithErrorCode<GetMap> Get(const UrlSet& url_set, int max_connections = 0);
+ValueWithErrorCode<GetMap> Get(const UrlSet& url_set, int max_connections = 0, const RetryBehavior& retry_behavior = {});
 
 /**
  * Performs HTTP GET on target Urls, with max_connection maximum parallel HTTP connections.
@@ -182,19 +197,19 @@ ValueWithErrorCode<GetMap> Get(const UrlSet& url_set, int max_connections = 0);
  * @return map of Url to corresponding returned data (with error code)
  */
 template <class InputIt>
-inline ValueWithErrorCode<GetMap> Get(InputIt urls_begin, InputIt urls_end, int max_connections = 0)
+inline ValueWithErrorCode<GetMap> Get(InputIt urls_begin, InputIt urls_end, int max_connections = 0, const RetryBehavior& retry_behavior = {})
 {
   const UrlSet url_set(urls_begin, urls_end);
-  return Get(url_set, max_connections);
+  return Get(url_set, max_connections, retry_behavior);
 }
 
 /**
  * See templated Get function.
  */
-inline GetResponse Get(const Url& url, int max_connections = 0)
+inline GetResponse Get(const Url& url, int max_connections = 0, const RetryBehavior& retry_behavior = {})
 {
   const auto url_list = {url};
-  auto data_map = Get(url_list.begin(), url_list.end(), max_connections);
+  auto data_map = Get(url_list.begin(), url_list.end(), max_connections, retry_behavior);
   const auto iter = data_map.first.find(url);
   const auto& json = iter != data_map.first.end() ? iter->second.first : Json();
   return {json, data_map.second};

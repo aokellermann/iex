@@ -24,7 +24,11 @@ namespace iex
 {
 namespace
 {
-// region Timeout
+// region Perform Curl
+
+constexpr const curl::HttpResponseCode kIexHttpTooManyRequests = 429;
+
+const curl::RetryBehavior default_retry_behavior{3, {kIexHttpTooManyRequests}};
 
 constexpr const std::chrono::milliseconds kIexTimeout(10);
 
@@ -44,12 +48,12 @@ std::mutex last_api_call_mutex;
 ValueWithErrorCode<curl::GetMap> PerformCurl(const curl::Url& url)
 {
   std::lock_guard lock(last_api_call_mutex);
-  auto response = curl::Get(curl::UrlSet{url});
+  auto response = curl::Get(curl::UrlSet{url}, 0, default_retry_behavior);
   std::this_thread::sleep_for(kIexTimeout);
   return response;
 }
 
-// endregion Timeout
+// endregion Perform Curl
 
 // region Url Helpers
 

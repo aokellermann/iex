@@ -134,7 +134,7 @@ class MultiHandleWrapper
    * @param max_connections maximum number of parallel connections
    * @return map of Url to returned Json data (with ErrorCode if encountered)
    */
-  GetMap Get(const UrlSet& url_set, int max_connections)
+  GetMap Get(const UrlSet& url_set, int max_connections, const RetryBehavior& retry_behavior)
   {
     // Populate handles_in_use_.
     GetAvailableHandles(url_set);
@@ -148,6 +148,9 @@ class MultiHandleWrapper
 
     // Contains information about failed GETs.
     UrlMap<ErrorCode> ecs;
+
+    // Contains number of retries per url.
+    UrlMap<int> retries;
 
     while (still_alive)
     {
@@ -163,16 +166,26 @@ class MultiHandleWrapper
           const CURLcode result = msg->data.result;
           if (result != CURLE_OK)
           {
-            int64_t http_code = 0;
+            HttpResponseCode http_code = 0;
             if (result == CURLE_HTTP_RETURNED_ERROR)
             {
               curl_easy_getinfo(done_handle, CURLINFO_RESPONSE_CODE, &http_code);
             }
 
-            ErrorCode ec = http_code == 0 ? ErrorCode(curl_easy_strerror(result))
-                                          : ErrorCode(curl_easy_strerror(result),
-                                                      {"response code", ErrorCode(std::to_string(http_code))});
-            ecs.emplace(*url, std::move(ec));
+            if (retry_behavior.max_retries > retries[*url] && retry_behavior.responses_to_retry.count(http_code))
+            {
+              curl_multi_remove_handle(multi_handle_.handle_, done_handle);
+              curl_multi_add_handle(multi_handle_.handle_, done_handle);
+              ++retries[*url];
+            }
+            else
+            {
+              ErrorCode ec = http_code == 0 ? ErrorCode(curl_easy_strerror(result))
+                                            : ErrorCode(curl_easy_strerror(result),
+                                                        {{"response code", ErrorCode(std::to_string(http_code))},
+                                                         {"retries", ErrorCode(std::to_string(retries[*url]))}});
+              ecs.emplace(*url, std::move(ec));
+            }
           }
           curl_multi_remove_handle(multi_handle_.handle_, done_handle);
         }
@@ -335,14 +348,16 @@ const ErrorCode& InitIfNeeded()
 
 const ErrorCode& InitIfNeeded() { return detail::InitIfNeeded(); }
 
-GetMap PerformGet(const std::unordered_set<Url, UrlHasher, UrlEquality>& url_set, int max_connections)
+GetMap PerformGet(const std::unordered_set<Url, UrlHasher, UrlEquality>& url_set,
+                  int max_connections,
+                  const RetryBehavior& retry_behavior)
 {
   if (!detail::local_multi_handle)
   {
     detail::local_multi_handle = std::make_unique<detail::MultiHandleWrapper>();
   }
 
-  return detail::local_multi_handle->Get(url_set, max_connections);
+  return detail::local_multi_handle->Get(url_set, max_connections, retry_behavior);
 }
 
 ValueWithErrorCode<std::string> GetEscapedUrlStringFromPlaintextString(const std::string& plaintext_url_string)
@@ -402,7 +417,9 @@ void Url::AppendParam(const Param& param, bool first)
 
 ErrorCode Init() { return InitIfNeeded(); }
 
-ValueWithErrorCode<GetMap> Get(const std::unordered_set<Url, UrlHasher, UrlEquality>& url_set, int max_connections)
+ValueWithErrorCode<GetMap> Get(const std::unordered_set<Url, UrlHasher, UrlEquality>& url_set,
+                               int max_connections,
+                               const RetryBehavior& retry_behavior)
 {
   // Check if CURL initialization previously succeeded (it is typically initialized on Url construction).
   const auto& init_ec = InitIfNeeded();
@@ -422,7 +439,7 @@ ValueWithErrorCode<GetMap> Get(const std::unordered_set<Url, UrlHasher, UrlEqual
   }
 
   // Perform GET.
-  auto data_map = PerformGet(url_set, max_connections);
+  auto data_map = PerformGet(url_set, max_connections, retry_behavior);
 
   // Generate ErrorCode if any GETs failed.
   std::vector<ErrorCode> named_errors;
