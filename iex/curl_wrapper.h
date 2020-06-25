@@ -151,9 +151,19 @@ using UrlSet = std::unordered_set<Url, UrlHasher, UrlEquality>;
  */
 using HttpResponseCode = int64_t;
 
+/**
+ * This struct determines if HTTP requests are retried on error.
+ */
 struct RetryBehavior
 {
+  /**
+   * The Url will be requested at maximum this number of times + 1. Ignored if responses_to_try is empty.
+   */
   int max_retries = 0;
+
+  /**
+   * The Url will only be retried if this set contains the response code. Ignored if max_retries is zero.
+   */
   std::unordered_set<HttpResponseCode> responses_to_retry;
 };
 
@@ -195,6 +205,7 @@ ValueWithErrorCode<GetMap> Get(const UrlSet& url_set, int max_connections = 0,
  * @param urls_begin beginning of Url container
  * @param urls_end end of Url container
  * @param max_connections number of maximum HTTP parellel connections allowed (0 means no limit)
+ * @param retry_behavior The number and response codes to retry HTTP requests if encountered.
  * @return map of Url to corresponding returned data (with error code)
  */
 template <class InputIt>

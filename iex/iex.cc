@@ -26,12 +26,24 @@ namespace
 {
 // region Perform Curl
 
+/**
+ * @see https://iexcloud.io/docs/api/#error-codes
+ */
 constexpr const curl::HttpResponseCode kIexHttpTooManyRequests = 429;
 
+/**
+ * Arbitrary number of retries.
+ */
 const curl::RetryBehavior kDefaultRetryBehavior{3, {kIexHttpTooManyRequests}};
 
+/**
+ * @see https://iexcloud.io/docs/api/#request-limits
+ */
 constexpr const std::chrono::milliseconds kIexTimeout(10);
 
+/**
+ * Used to ensure only one request at a time.
+ */
 std::mutex last_api_call_mutex;
 
 /**
@@ -297,10 +309,10 @@ ErrorCode PutEndpoint(AggregatedResponses& aggregated_responses, const curl::Get
         new_endpoint_ptr = EndpointFactory<SystemStatus>(json);
         break;
       case Endpoint::Type::QUOTE:
-        new_endpoint_ptr = EndpointFactory<Quote>(*jendpoint);
+        new_endpoint_ptr = EndpointFactory<Quote>(*jendpoint, symbol);
         break;
       case Endpoint::Type::COMPANY:
-        new_endpoint_ptr = EndpointFactory<Company>(*jendpoint);
+        new_endpoint_ptr = EndpointFactory<Company>(*jendpoint, symbol);
         break;
 
       default:
