@@ -15,7 +15,7 @@
 #include "iex/file_serializable.h"
 #include "iex/json_serializer.h"
 
-using Keychain = iex::api::key::Keychain;
+using Keychain = iex::key::Keychain;
 namespace fs = std::filesystem;
 
 static constexpr const char* kKeyNameMap[]{"IEX_PUBLIC_KEY", "IEX_SECRET_KEY", "IEX_SANDBOX_PUBLIC_KEY",

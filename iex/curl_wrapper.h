@@ -6,13 +6,14 @@
 
 #pragma once
 
+#include <chrono>
 #include <nlohmann/json.hpp>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
 
-#include "iex/iex.h"
+#include "iex/common.h"
 #include "iex/json_serializer.h"
 
 /**
@@ -31,16 +32,50 @@ class Url
   /**
    * Represents a named Url parameter.
    */
-  using NamedParam = NamedPair<std::string>;
+  struct Param
+  {
+    using Name = std::string;
+    using Value = std::string;
+
+    struct Hasher
+    {
+      std::size_t operator()(const Param& param) const { return std::hash<std::string>()(param.name); }
+    };
+
+    template <typename InputIt>
+    Param(Name param_name, InputIt comma_separated_params_begin, InputIt comma_separated_params_end)
+        : name(std::move(param_name))
+    {
+      for (auto iterator = comma_separated_params_begin; iterator != comma_separated_params_end; ++iterator)
+      {
+        value += *iterator + ',';
+      }
+      if (comma_separated_params_begin != comma_separated_params_end)
+      {
+        value.pop_back();
+      }
+    }
+
+    Param(Name param_name, std::initializer_list<Value> values)
+        : Param(std::move(param_name), values.begin(), values.end())
+    {
+    }
+
+    Param(Name param_name, Value param_value) : name(std::move(param_name)), value(std::move(param_value)) {}
+
+    bool operator==(const Param& other) const { return name == other.name && value == other.value; }
+
+    Name name;
+    Value value;
+  };
+
+  using Params = std::unordered_set<Param, Param::Hasher>;
 
   Url() = delete;
 
   explicit Url(std::string base_url) : impl_(std::move(base_url)), ec_(impl_.empty() ? "Empty URL" : "") {}
 
-  Url(const std::string& base_url, std::initializer_list<NamedParam> named_params)
-      : Url(base_url, named_params.begin(), named_params.end())
-  {
-  }
+  Url(const std::string& base_url, Params params) : Url(base_url, params.begin(), params.end()) {}
 
   template <class InputIt>
   Url(const std::string& base_url, InputIt params_begin, InputIt params_end) : Url(base_url)
@@ -53,7 +88,7 @@ class Url
 
     for (InputIt head = params_begin; head != params_end; ++head)
     {
-      AppendParam(head->first, head->second, head == params_begin);
+      AppendParam(*head, head == params_begin);
       if (ec_.Failure())
       {
         impl_.clear();
@@ -71,7 +106,7 @@ class Url
  private:
   static ValueWithErrorCode<std::string> UrlEncode(const std::string& plaintext_str);
 
-  void AppendParam(const std::string& name, const std::string& raw_value, bool first);
+  void AppendParam(const Param& param, bool first);
 
   std::string impl_;
   ErrorCode ec_;
@@ -110,6 +145,41 @@ using UrlSet = std::unordered_set<Url, UrlHasher, UrlEquality>;
 
 // endregion
 
+// region Retry
+
+/**
+ * The HTTP response number, such as 404 (Not Found).
+ */
+using HttpResponseCode = int64_t;
+
+/**
+ * This struct determines if HTTP requests are retried on error.
+ */
+struct RetryBehavior
+{
+  /**
+   * The Url will be requested at maximum this number of times + 1. Ignored if responses_to_try is empty.
+   */
+  int max_retries = 0;
+
+  /**
+   * The Url will be retried if this set contains the response code. Ignored if max_retries is zero.
+   */
+  std::unordered_set<HttpResponseCode> responses_to_retry;
+
+  /**
+   * Retry if the HTTP request succeeded, but contains no data.
+   */
+  bool retry_if_empty_response_data = false;
+
+  /**
+   * Sleep period before retrying request.
+   */
+  std::chrono::milliseconds timeout = decltype(timeout)::zero();
+};
+
+// endregion Retry
+
 // region Interface
 
 /**
@@ -137,7 +207,8 @@ using GetMap = UrlMap<GetResponse>;
 /**
  * See templated Get function.
  */
-ValueWithErrorCode<GetMap> Get(const UrlSet& url_set, int max_connections = 0);
+ValueWithErrorCode<GetMap> Get(const UrlSet& url_set, int max_connections = 0,
+                               const RetryBehavior& retry_behavior = {});
 
 /**
  * Performs HTTP GET on target Urls, with max_connection maximum parallel HTTP connections.
@@ -145,22 +216,24 @@ ValueWithErrorCode<GetMap> Get(const UrlSet& url_set, int max_connections = 0);
  * @param urls_begin beginning of Url container
  * @param urls_end end of Url container
  * @param max_connections number of maximum HTTP parellel connections allowed (0 means no limit)
+ * @param retry_behavior The number and response codes to retry HTTP requests if encountered.
  * @return map of Url to corresponding returned data (with error code)
  */
 template <class InputIt>
-inline ValueWithErrorCode<GetMap> Get(InputIt urls_begin, InputIt urls_end, int max_connections = 0)
+inline ValueWithErrorCode<GetMap> Get(InputIt urls_begin, InputIt urls_end, int max_connections = 0,
+                                      const RetryBehavior& retry_behavior = {})
 {
   const UrlSet url_set(urls_begin, urls_end);
-  return Get(url_set, max_connections);
+  return Get(url_set, max_connections, retry_behavior);
 }
 
 /**
  * See templated Get function.
  */
-inline GetResponse Get(const Url& url, int max_connections = 0)
+inline GetResponse Get(const Url& url, int max_connections = 0, const RetryBehavior& retry_behavior = {})
 {
   const auto url_list = {url};
-  auto data_map = Get(url_list.begin(), url_list.end(), max_connections);
+  auto data_map = Get(url_list.begin(), url_list.end(), max_connections, retry_behavior);
   const auto iter = data_map.first.find(url);
   const auto& json = iter != data_map.first.end() ? iter->second.first : Json();
   return {json, data_map.second};

@@ -12,6 +12,7 @@
 #include <initializer_list>
 #include <memory>
 #include <mutex>
+#include <thread>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -59,13 +60,14 @@ struct EasyHandle
  *
  * After use, ExtractData should be called (so that the data buffer is cleared).
  */
-struct EasyHandleDataPair : std::pair<EasyHandle, std::string>
+class EasyHandleDataPair : public std::pair<EasyHandle, std::string>
 {
+ public:
   EasyHandleDataPair() = delete;
 
-  explicit EasyHandleDataPair(const Url& url)
+  explicit EasyHandleDataPair(Url target_url) : url_(std::move(target_url))
   {
-    AssignUrl(url);
+    AssignHandleUrlOptions();
 
     // Follow any redirections
     curl_easy_setopt(first.handle_, CURLOPT_FOLLOWLOCATION, 1L);
@@ -77,27 +79,47 @@ struct EasyHandleDataPair : std::pair<EasyHandle, std::string>
     curl_easy_setopt(first.handle_, CURLOPT_ACCEPT_ENCODING, "");
     // Turns off internal signalling to ensure thread-safety. See here: https://curl.haxx.se/libcurl/c/threadsafe.html
     curl_easy_setopt(first.handle_, CURLOPT_NOSIGNAL, 1L);
+    // Treats HTTP codes greater than 400 as error. See https://iexcloud.io/docs/api/#error-codes
+    curl_easy_setopt(first.handle_, CURLOPT_FAILONERROR, 1L);
   }
 
-  void AssignUrl(const Url& url)
+  void AssignUrl(Url target_url)
   {
-    // Set Url
-    curl_easy_setopt(first.handle_, CURLOPT_URL, url.GetAsString().c_str());
-    // Store pointer to associated Url.
-    curl_easy_setopt(first.handle_, CURLOPT_PRIVATE, &url);
+    url_ = std::move(target_url);
+    AssignHandleUrlOptions();
   }
 
-  Json ExtractData()
+  ValueWithErrorCode<Json> ExtractData()
   {
     if (second.empty())
     {
-      return Json();
+      return {{}, ErrorCode{"Empty return data"}};
     }
 
-    Json json = Json::parse(second);
+    Json json;
+    try
+    {
+      json = Json::parse(second);
+    }
+    catch (const std::exception& e)
+    {
+      return {{}, ErrorCode("Failed to parse return data", {{"ex", ErrorCode(e.what())}, {"data", ErrorCode(second)}})};
+    }
+
     second.clear();
-    return json;
+    return {std::move(json), {}};
   }
+
+ private:
+  void AssignHandleUrlOptions()
+  {
+    // Set Url
+    curl_easy_setopt(first.handle_, CURLOPT_URL, url_.GetAsString().c_str());
+    // Store pointer to associated Url.
+    curl_easy_setopt(first.handle_, CURLOPT_PRIVATE, &url_);
+  }
+
+  Url url_;
 };
 
 /**
@@ -123,7 +145,7 @@ class MultiHandleWrapper
    * @param max_connections maximum number of parallel connections
    * @return map of Url to returned Json data (with ErrorCode if encountered)
    */
-  GetMap Get(const UrlSet& url_set, int max_connections)
+  GetMap Get(const UrlSet& url_set, int max_connections, const RetryBehavior& retry_behavior)
   {
     // Populate handles_in_use_.
     GetAvailableHandles(url_set);
@@ -138,6 +160,9 @@ class MultiHandleWrapper
     // Contains information about failed GETs.
     UrlMap<ErrorCode> ecs;
 
+    // Contains number of retries per url.
+    UrlMap<int> retries;
+
     while (still_alive)
     {
       curl_multi_perform(multi_handle_.handle_, &still_alive);
@@ -150,11 +175,61 @@ class MultiHandleWrapper
           CURL* done_handle = msg->easy_handle;
           curl_easy_getinfo(msg->easy_handle, CURLINFO_PRIVATE, &url);
           const CURLcode result = msg->data.result;
+
+          bool do_retry = false;
+          const bool retry_allowed = retry_behavior.max_retries > retries[*url];
+
           if (result != CURLE_OK)
           {
-            ecs.emplace(*url, ErrorCode(curl_easy_strerror(result)));
+            HttpResponseCode http_code = 0;
+            if (result == CURLE_HTTP_RETURNED_ERROR)
+            {
+              curl_easy_getinfo(done_handle, CURLINFO_RESPONSE_CODE, &http_code);
+            }
+
+            // Check if request should be retried. Otherwise, emplace ec.
+            if (retry_allowed && retry_behavior.responses_to_retry.count(http_code))
+            {
+              do_retry = true;
+            }
+            else
+            {
+              ErrorCode ec = http_code == 0 ? ErrorCode(curl_easy_strerror(result))
+                                            : ErrorCode(curl_easy_strerror(result),
+                                                        {{"response code", ErrorCode(std::to_string(http_code))},
+                                                         {"retries", ErrorCode(std::to_string(retries[*url]))}});
+              ecs.emplace(*url, std::move(ec));
+            }
           }
+          else if (handles_in_use_.find(*url)->second.second.empty())
+          {
+            // If successful curl, empty response data, and retry behavior is specified, retry.
+            if (retry_allowed && retry_behavior.retry_if_empty_response_data)
+            {
+              do_retry = true;
+            }
+            else
+            {
+              ErrorCode ec = ErrorCode("Empty return data", {"retries", ErrorCode(std::to_string(retries[*url]))});
+              ecs.emplace(*url, std::move(ec));
+            }
+          }
+
+          // Always remove handle after complete request
           curl_multi_remove_handle(multi_handle_.handle_, done_handle);
+
+          if (retry_allowed && do_retry)
+          {
+            // Clear data and increment retries
+            handles_in_use_.find(*url)->second.second.clear();
+            ++retries[*url];
+
+            // Sleep before retrying
+            std::this_thread::sleep_for(retry_behavior.timeout);
+
+            // Re-add handle
+            curl_multi_add_handle(multi_handle_.handle_, done_handle);
+          }
         }
       }
 
@@ -169,7 +244,13 @@ class MultiHandleWrapper
     {
       auto ec_iter = ecs.find(handle.first);
       ErrorCode ec = ec_iter == ecs.end() ? ErrorCode() : ec_iter->second;
-      return_data.insert(std::make_pair(handle.first, std::make_pair(handle.second.ExtractData(), std::move(ec))));
+      auto data = handle.second.ExtractData();
+      if (ec.Success() && data.second.Failure())
+      {
+        ec = std::move(data.second);
+      }
+
+      return_data.insert(std::make_pair(handle.first, std::make_pair(std::move(data.first), std::move(ec))));
     }
 
     ClearUsedHandles();
@@ -200,24 +281,24 @@ class MultiHandleWrapper
     }
 
     // Reuse handles that have already been created.
-    std::size_t num_handles_still_needed = handles_in_use_.size() - url_set.size();
-    std::size_t i = 0;
-    auto current_url_iter = url_set.begin();
-    for (; i < num_handles_still_needed && current_url_iter != url_set.end(); ++i, ++current_url_iter)
+    for (const auto& url : url_set)
     {
-      if (!available_handles_.empty())
+      if (!handles_in_use_.count(url))
       {
-        // Reuse handles here
-        // Extract, and change Url.
-        auto extracted_node = available_handles_.extract(available_handles_.begin());
-        extracted_node.key() = *current_url_iter;
-        extracted_node.mapped().AssignUrl(*current_url_iter);
-        handles_in_use_.insert(std::move(extracted_node));
-      }
-      else
-      {
-        // Create new handles if no more are available.
-        handles_in_use_.emplace(*current_url_iter, *current_url_iter);
+        if (!available_handles_.empty())
+        {
+          // Reuse handles here
+          // Extract, and change Url.
+          auto extracted_node = available_handles_.extract(available_handles_.begin());
+          extracted_node.key() = url;
+          extracted_node.mapped().AssignUrl(url);
+          handles_in_use_.insert(std::move(extracted_node));
+        }
+        else
+        {
+          // Create new handles if no more are available.
+          handles_in_use_.emplace(url, url);
+        }
       }
     }
 
@@ -309,14 +390,16 @@ const ErrorCode& InitIfNeeded()
 
 const ErrorCode& InitIfNeeded() { return detail::InitIfNeeded(); }
 
-GetMap PerformGet(const std::unordered_set<Url, UrlHasher, UrlEquality>& url_set, int max_connections)
+GetMap PerformGet(const std::unordered_set<Url, UrlHasher, UrlEquality>& url_set,
+                  int max_connections,
+                  const RetryBehavior& retry_behavior)
 {
   if (!detail::local_multi_handle)
   {
     detail::local_multi_handle = std::make_unique<detail::MultiHandleWrapper>();
   }
 
-  return detail::local_multi_handle->Get(url_set, max_connections);
+  return detail::local_multi_handle->Get(url_set, max_connections, retry_behavior);
 }
 
 ValueWithErrorCode<std::string> GetEscapedUrlStringFromPlaintextString(const std::string& plaintext_url_string)
@@ -352,22 +435,22 @@ ValueWithErrorCode<std::string> Url::UrlEncode(const std::string& plaintext_str)
   return GetEscapedUrlStringFromPlaintextString(plaintext_str);
 }
 
-void Url::AppendParam(const std::string& name, const std::string& raw_value, bool first)
+void Url::AppendParam(const Param& param, bool first)
 {
-  if (name.empty() || raw_value.empty())
+  if (param.name.empty() || param.value.empty())
   {
-    ec_ = ErrorCode(name.empty() ? "name is empty" : "value is empty");
+    ec_ = ErrorCode(param.name.empty() ? "name is empty" : "value is empty");
     return;
   }
 
-  const auto pair = UrlEncode(raw_value);
+  const auto pair = UrlEncode(param.value);
   if (pair.second.Failure())
   {
     ec_ = pair.second;
     return;
   }
 
-  impl_ += (first ? "?" : "&") + name + "=" + pair.first;
+  impl_ += (first ? "?" : "&") + param.name + "=" + pair.first;
 }
 
 // endregion Url
@@ -376,7 +459,9 @@ void Url::AppendParam(const std::string& name, const std::string& raw_value, boo
 
 ErrorCode Init() { return InitIfNeeded(); }
 
-ValueWithErrorCode<GetMap> Get(const std::unordered_set<Url, UrlHasher, UrlEquality>& url_set, int max_connections)
+ValueWithErrorCode<GetMap> Get(const std::unordered_set<Url, UrlHasher, UrlEquality>& url_set,
+                               int max_connections,
+                               const RetryBehavior& retry_behavior)
 {
   // Check if CURL initialization previously succeeded (it is typically initialized on Url construction).
   const auto& init_ec = InitIfNeeded();
@@ -396,7 +481,7 @@ ValueWithErrorCode<GetMap> Get(const std::unordered_set<Url, UrlHasher, UrlEqual
   }
 
   // Perform GET.
-  auto data_map = PerformGet(url_set, max_connections);
+  auto data_map = PerformGet(url_set, max_connections, retry_behavior);
 
   // Generate ErrorCode if any GETs failed.
   std::vector<ErrorCode> named_errors;

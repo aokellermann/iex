@@ -5,6 +5,11 @@ add_executable(unit_test
         curl_test.cc
         file_test.cc
         keychain_test.cc
+        system_status_test.cc
+        quote_test.cc
+        company_test.cc
+        api_test.cc
+        symbols_test.cc
         )
 target_link_libraries(unit_test ${_link_libraries})
 

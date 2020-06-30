@@ -18,6 +18,7 @@ Ensure all dependencies listed [here](../README.md#Dependencies) are installed.
 The project's `CMakeLists.txt` supports the following options:
 * `IEX_ENABLE_ALLWARNINGS`: Turn on GCC/Clang compatible compiler warnings. Note: warnings will cause build to fail due to addition of `Werror`.
 * `IEX_BUILD_TESTING`: Build unit test target in addition to `iex`.
+* `IEX_ENABLE_STRESS_TESTS`: Build stress unit tests (CI does not run these).
 * `IEX_BUILD_DOCUMENTATION`: Build documentation using `doxygen`.
 
 To perform a weed whack build, run:

@@ -8,7 +8,7 @@
 
 #include <string>
 
-#include "iex/iex.h"
+#include "iex/common.h"
 
 /**
  * Contains synchronized methods for reading from and writing to environment variables.

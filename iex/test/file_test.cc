@@ -9,8 +9,8 @@
 #include <ctime>
 #include <string>
 
+#include "iex/common.h"
 #include "iex/file_serializable.h"
-#include "iex/iex.h"
 
 namespace file = iex::file;
 

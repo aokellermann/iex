@@ -9,6 +9,7 @@ message(STATUS "${PROJECT_NAME} version: ${PROJECT_VERSION}")
 # Options related to weed whacking, testing, and documentation.
 option(IEX_ENABLE_ALLWARNINGS "Add GCC/Clang compatible compile options." OFF)
 option(IEX_BUILD_TESTING "Enable unit testing." OFF)
+option(IEX_ENABLE_STRESS_TESTS "Enable stress unit testing" OFF)
 option(IEX_BUILD_DOCUMENTATION "Generate Doxygen documentation." ON)
 
 # Set configuration: Either Debug, Release (default), MinSizeRel, or RelWithDebInfo.
@@ -46,14 +47,24 @@ message(STATUS "IEX_BUILD_TESTING: ${IEX_BUILD_TESTING}")
 
 # Set library headers and sources.
 set(iex_headers
+        common.h
+        utils.h
+        curl_wrapper.h
+        file_serializable.h
+        env.h
+        keychain.h
         iex.h
+        api/system_status.h
+        api/quote.h
+        api/company.h
+        api/symbols.h
         )
 set(iex_sources
-        iex.cc
         curl_wrapper.cc
         file_serializable.cc
         env.cc
         keychain.cc
+        iex.cc
         )
 
 # Specify source directory.
@@ -100,6 +111,10 @@ export(TARGETS ${IEX_LIBRARIES}
 
 # Build GTest if unit testing enabled.
 if (IEX_BUILD_TESTING)
+    if (IEX_ENABLE_STRESS_TESTS)
+        add_definitions(-DIEX_ENABLE_STRESS_TESTS)
+    endif ()
+
     enable_testing()
     set(INSTALL_GTEST OFF)
     set(CMAKE_POLICY_DEFAULT_CMP0077 NEW) # Propagate INSTALL_GTEST=OFF to subproject
