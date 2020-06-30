@@ -34,7 +34,9 @@ const curl::RetryBehavior kDefaultRetryBehavior{3, {kIexHttpTooManyRequests}, tr
 /**
  * Used to ensure only one request at a time.
  */
-std::mutex last_api_call_mutex;
+std::mutex api_call_mutex;
+
+std::chrono::high_resolution_clock::time_point last_call_ts;
 
 /**
  * Curls the given Urls.
@@ -49,9 +51,12 @@ std::mutex last_api_call_mutex;
  */
 ValueWithErrorCode<curl::GetMap> PerformCurl(const curl::Url& url)
 {
-  std::lock_guard lock(last_api_call_mutex);
+  std::lock_guard lock(api_call_mutex);
+  auto now = std::chrono::high_resolution_clock::now();
+  const auto time_since_last_call = now - last_call_ts;
+  std::this_thread::sleep_for(kIexRequestLimitTimeout - time_since_last_call);
   auto response = curl::Get(curl::UrlSet{url}, 0, kDefaultRetryBehavior);
-  std::this_thread::sleep_for(kIexRequestLimitTimeout);
+  last_call_ts = std::move(now);
   return response;
 }
 

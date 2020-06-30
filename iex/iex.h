@@ -36,7 +36,7 @@ namespace iex
  * @see IexManualTimeoutStress in api_test.cc
  * @see https://iexcloud.io/docs/api/#request-limits
  */
-constexpr const std::chrono::milliseconds kIexRequestLimitTimeout(35);
+constexpr const std::chrono::milliseconds kIexRequestLimitTimeout(40);
 
 /**
  * @see https://iexcloud.io/docs/api/#error-codes
