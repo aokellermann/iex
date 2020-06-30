@@ -7,6 +7,7 @@
 #include "iex.h"
 
 #include <functional>
+#include <mutex>
 #include <thread>
 #include <unordered_map>
 
@@ -14,11 +15,10 @@
 #include "iex/api/quote.h"
 #include "iex/api/symbols.h"
 #include "iex/api/system_status.h"
-#include "iex/curl_wrapper.h"
-#include "iex/json_serializer.h"
-#include "iex/keychain.h"
-#include "iex/singleton.h"
-#include "iex/utils.h"
+#include "iex/detail/curl_wrapper.h"
+#include "iex/detail/json_serializer.h"
+#include "iex/detail/singleton.h"
+#include "iex/detail/utils.h"
 
 namespace iex
 {
@@ -69,10 +69,7 @@ using Param = curl::Url::Param;
 using Params = curl::Url::Params;
 using UrlEndpointMap = curl::UrlMap<Endpoint::TypeSet>;
 
-/**
- * This is a pointer to a static singleton.
- */
-key::Keychain* keychain = nullptr;
+Keys api_keys;
 
 const std::string kBaseUrlMap[]{"https://cloud.iexapis.com/", "https://sandbox.iexapis.com/"};
 
@@ -82,15 +79,9 @@ const std::vector<const Endpoint*> kEndpoints{&singleton::GetInstance<Symbols>()
                                               &singleton::GetInstance<SystemStatus>(), &singleton::GetInstance<Quote>(),
                                               &singleton::GetInstance<Company>()};
 
-ValueWithErrorCode<key::Keychain::Key> GetKey(const DataType type)
+Key GetKey(const DataType type)
 {
-  if (keychain == nullptr)
-  {
-    return {{}, ErrorCode{"Keychain was never created"}};
-  }
-
-  return keychain->Get(type == DataType::AUTHENTIC ? key::Keychain::KeyType::SECRET
-                                                   : key::Keychain::KeyType::SANDBOX_SECRET);
+  return type == DataType::AUTHENTIC ? api_keys.secret_key : api_keys.secret_sandbox_key;
 }
 
 void AppendParams(Params& params, const Endpoint::Options& options)
@@ -107,13 +98,7 @@ Url GetUrl(const Endpoint::Type& type, const RequestOptions& options)
   std::string url_string =
       kBaseUrlMap[options.data_type] + kVersionUrlMap[options.version] + '/' + kEndpoints[type]->GetName();
 
-  const auto key = GetKey(options.data_type);
-  if (key.second.Failure())
-  {
-    return Url{""};  // Invalid
-  }
-
-  Params params{{"token", key.first}};
+  Params params{{"token", GetKey(options.data_type)}};
   AppendParams(params, options.options);
 
   return Url(std::move(url_string), std::move(params));
@@ -122,12 +107,6 @@ Url GetUrl(const Endpoint::Type& type, const RequestOptions& options)
 Url GetUrl(const SymbolSet& symbols, const Endpoint::TypeSet& types, const RequestOptions& options)
 {
   std::string url_string = kBaseUrlMap[options.data_type] + kVersionUrlMap[options.version] + "/stock/market/batch";
-
-  const auto key = GetKey(options.data_type);
-  if (key.second.Failure())
-  {
-    return Url{""};  // Invalid
-  }
 
   std::unordered_set<std::string> syms;
   syms.reserve(symbols.size());
@@ -143,7 +122,8 @@ Url GetUrl(const SymbolSet& symbols, const Endpoint::TypeSet& types, const Reque
     ts.insert(kEndpoints[t]->GetName());
   }
 
-  Params params = {{"symbols", syms.begin(), syms.end()}, {"types", ts.begin(), ts.end()}, {"token", key.first}};
+  Params params = {
+      {"symbols", syms.begin(), syms.end()}, {"types", ts.begin(), ts.end()}, {"token", GetKey(options.data_type)}};
   AppendParams(params, options.options);
 
   return Url(std::move(url_string), std::move(params));
@@ -372,41 +352,11 @@ void Symbol::Set(std::string sym) { impl_ = std::move(utils::ToUpper(sym)); }
 
 // region Interface
 
-ErrorCode Init(const key::Keychain::EnvironmentFlag&)
+ErrorCode Init(Keys keys)
 {
-  auto ec = InnerInit();
-  if (ec.Failure())
-  {
-    return ec;
-  }
-
-  keychain = &singleton::GetInstance<key::Keychain>(key::Keychain::EnvironmentFlag());
-  return keychain->KeychainValidity();
+  api_keys = std::move(keys);
+  return InnerInit();
 }
-
-ErrorCode Init(file::Directory keychain_directory)
-{
-  auto ec = InnerInit();
-  if (ec.Failure())
-  {
-    return ec;
-  }
-
-  keychain = &singleton::GetInstance<key::Keychain>(keychain_directory);
-  return keychain->KeychainValidity();
-}
-
-ErrorCode SetKey(key::Keychain::KeyType type, const key::Keychain::Key& key)
-{
-  if (keychain == nullptr)
-  {
-    return ErrorCode{"Keychain not initialized"};
-  }
-
-  return keychain->Set(type, key);
-}
-
-bool IsReadyForUse() { return keychain != nullptr && keychain->KeychainValidity().Success() && keychain->Populated(); }
 
 ValueWithErrorCode<AggregatedResponses> Get(const AggregatedRequests& requests)
 {

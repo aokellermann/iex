@@ -13,8 +13,8 @@
 #include <unordered_set>
 #include <utility>
 
-#include "iex/common.h"
-#include "iex/json_serializer.h"
+#include "common.h"
+#include "json_serializer.h"
 
 /**
  * Contains all declarations necessary for performing a HTTP GET by a client.

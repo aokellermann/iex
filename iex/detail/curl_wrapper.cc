@@ -5,7 +5,7 @@
  * @copyright 2020 Antony Kellermann
  */
 
-#include "iex/curl_wrapper.h"
+#include "curl_wrapper.h"
 
 #include <curl/curl.h>
 
