@@ -13,7 +13,10 @@
 #include "iex/api/company.h"
 #include "iex/api/quote.h"
 #include "iex/api/system_status.h"
+#include "iex/curl_wrapper.h"
 #include "iex/iex.h"
+
+namespace curl = iex::curl;
 
 TEST(Api, AggregatedAndBatch)
 {
@@ -148,10 +151,9 @@ TEST(Api, Multithread)
       {
         for (const auto& data_type : data_types)
         {
-          const auto *const sym_ptr = data.first.Get(sym);
-          if (sym_ptr != nullptr &&
-              (sym_ptr->Get<kEQuote>(iex::RequestOptions{{}, version, data_type}) != nullptr ||
-              sym_ptr->Get<kECompany>(iex::RequestOptions{{}, version, data_type}) != nullptr))
+          const auto* const sym_ptr = data.first.Get(sym);
+          if (sym_ptr != nullptr && (sym_ptr->Get<kEQuote>(iex::RequestOptions{{}, version, data_type}) != nullptr ||
+                                     sym_ptr->Get<kECompany>(iex::RequestOptions{{}, version, data_type}) != nullptr))
           {
             found = true;
             break;
@@ -160,5 +162,54 @@ TEST(Api, Multithread)
       }
     }
     EXPECT_TRUE(found);
+  }
+}
+
+TEST(Curl, IexManualTimeoutStress)
+{
+  const char* tk = getenv("IEX_SANDBOX_SECRET_KEY");
+  ASSERT_NE(tk, nullptr);
+
+  const curl::UrlSet urls = {curl::Url("https://sandbox.iexapis.com/stable/stock/aapl/quote?token=" + std::string(tk)),
+                             curl::Url("https://sandbox.iexapis.com/stable/stock/tsla/quote?token=" + std::string(tk)),
+                             curl::Url("https://sandbox.iexapis.com/stable/stock/amd/quote?token=" + std::string(tk)),
+                             curl::Url("https://sandbox.iexapis.com/stable/stock/intc/quote?token=" + std::string(tk)),
+                             curl::Url("https://sandbox.iexapis.com/stable/stock/twtr/quote?token=" + std::string(tk))};
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
+  int failures = 0;
+  for (int i = 0; i < 5; ++i)
+  {
+    for (const auto& url : urls)
+    {
+      if (curl::Get(url).second.Failure())
+      {
+        ++failures;
+      }
+    }
+  }
+
+  // Expect at least one to fail due to API rate limiting and not using a timeout.
+  ASSERT_GT(failures, 0);
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
+  // Now, do a prolonged stress test to make sure the constant timeout
+
+  const curl::RetryBehavior retry_behavior{3, {iex::kIexHttpTooManyRequests}, true, iex::kIexRequestLimitTimeout};
+  std::vector<iex::ErrorCode> ecs;
+
+  for (int i = 0; i < 50; ++i)
+  {
+    for (const auto& url : urls)
+    {
+      ecs.emplace_back(curl::Get(url, 1, retry_behavior).second);
+      std::this_thread::sleep_for(iex::kIexRequestLimitTimeout);
+    }
+  }
+  for (const auto& ec : ecs)
+  {
+    EXPECT_EQ(ec, iex::ErrorCode());
   }
 }

@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <nlohmann/json.hpp>
 #include <string>
 #include <unordered_map>
@@ -162,9 +163,19 @@ struct RetryBehavior
   int max_retries = 0;
 
   /**
-   * The Url will only be retried if this set contains the response code. Ignored if max_retries is zero.
+   * The Url will be retried if this set contains the response code. Ignored if max_retries is zero.
    */
   std::unordered_set<HttpResponseCode> responses_to_retry;
+
+  /**
+   * Retry if the HTTP request succeeded, but contains no data.
+   */
+  bool retry_if_empty_response_data = false;
+
+  /**
+   * Sleep period before retrying request.
+   */
+  std::chrono::milliseconds timeout = decltype(timeout)::zero();
 };
 
 // endregion Retry

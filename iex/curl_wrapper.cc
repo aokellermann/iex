@@ -12,6 +12,7 @@
 #include <initializer_list>
 #include <memory>
 #include <mutex>
+#include <thread>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -59,13 +60,14 @@ struct EasyHandle
  *
  * After use, ExtractData should be called (so that the data buffer is cleared).
  */
-struct EasyHandleDataPair : std::pair<EasyHandle, std::string>
+class EasyHandleDataPair : public std::pair<EasyHandle, std::string>
 {
+ public:
   EasyHandleDataPair() = delete;
 
-  explicit EasyHandleDataPair(const Url& url)
+  explicit EasyHandleDataPair(Url target_url) : url_(std::move(target_url))
   {
-    AssignUrl(url);
+    AssignHandleUrlOptions();
 
     // Follow any redirections
     curl_easy_setopt(first.handle_, CURLOPT_FOLLOWLOCATION, 1L);
@@ -81,12 +83,10 @@ struct EasyHandleDataPair : std::pair<EasyHandle, std::string>
     curl_easy_setopt(first.handle_, CURLOPT_FAILONERROR, 1L);
   }
 
-  void AssignUrl(const Url& url)
+  void AssignUrl(Url target_url)
   {
-    // Set Url
-    curl_easy_setopt(first.handle_, CURLOPT_URL, url.GetAsString().c_str());
-    // Store pointer to associated Url.
-    curl_easy_setopt(first.handle_, CURLOPT_PRIVATE, &url);
+    url_ = std::move(target_url);
+    AssignHandleUrlOptions();
   }
 
   ValueWithErrorCode<Json> ExtractData()
@@ -109,6 +109,17 @@ struct EasyHandleDataPair : std::pair<EasyHandle, std::string>
     second.clear();
     return {std::move(json), {}};
   }
+
+ private:
+  void AssignHandleUrlOptions()
+  {
+    // Set Url
+    curl_easy_setopt(first.handle_, CURLOPT_URL, url_.GetAsString().c_str());
+    // Store pointer to associated Url.
+    curl_easy_setopt(first.handle_, CURLOPT_PRIVATE, &url_);
+  }
+
+  Url url_;
 };
 
 /**
@@ -164,6 +175,10 @@ class MultiHandleWrapper
           CURL* done_handle = msg->easy_handle;
           curl_easy_getinfo(msg->easy_handle, CURLINFO_PRIVATE, &url);
           const CURLcode result = msg->data.result;
+
+          bool do_retry = false;
+          const bool retry_allowed = retry_behavior.max_retries > retries[*url];
+
           if (result != CURLE_OK)
           {
             HttpResponseCode http_code = 0;
@@ -172,12 +187,10 @@ class MultiHandleWrapper
               curl_easy_getinfo(done_handle, CURLINFO_RESPONSE_CODE, &http_code);
             }
 
-            if (retry_behavior.max_retries > retries[*url] && retry_behavior.responses_to_retry.count(http_code))
+            // Check if request should be retried. Otherwise, emplace ec.
+            if (retry_allowed && retry_behavior.responses_to_retry.count(http_code))
             {
-              handles_in_use_.find(*url)->second.second.clear();
-              curl_multi_remove_handle(multi_handle_.handle_, done_handle);
-              curl_multi_add_handle(multi_handle_.handle_, done_handle);
-              ++retries[*url];
+              do_retry = true;
             }
             else
             {
@@ -188,7 +201,35 @@ class MultiHandleWrapper
               ecs.emplace(*url, std::move(ec));
             }
           }
+          else if (handles_in_use_.find(*url)->second.second.empty())
+          {
+            // If successful curl, empty response data, and retry behavior is specified, retry.
+            if (retry_allowed && retry_behavior.retry_if_empty_response_data)
+            {
+              do_retry = true;
+            }
+            else
+            {
+              ErrorCode ec = ErrorCode("Empty return data", {"retries", ErrorCode(std::to_string(retries[*url]))});
+              ecs.emplace(*url, std::move(ec));
+            }
+          }
+
+          // Always remove handle after complete request
           curl_multi_remove_handle(multi_handle_.handle_, done_handle);
+
+          if (retry_allowed && do_retry)
+          {
+            // Clear data and increment retries
+            handles_in_use_.find(*url)->second.second.clear();
+            ++retries[*url];
+
+            // Sleep before retrying
+            std::this_thread::sleep_for(retry_behavior.timeout);
+
+            // Re-add handle
+            curl_multi_add_handle(multi_handle_.handle_, done_handle);
+          }
         }
       }
 
@@ -240,24 +281,24 @@ class MultiHandleWrapper
     }
 
     // Reuse handles that have already been created.
-    std::size_t num_handles_still_needed = handles_in_use_.size() - url_set.size();
-    std::size_t i = 0;
-    auto current_url_iter = url_set.begin();
-    for (; i < num_handles_still_needed && current_url_iter != url_set.end(); ++i, ++current_url_iter)
+    for (const auto& url : url_set)
     {
-      if (!available_handles_.empty())
+      if (!handles_in_use_.count(url))
       {
-        // Reuse handles here
-        // Extract, and change Url.
-        auto extracted_node = available_handles_.extract(available_handles_.begin());
-        extracted_node.key() = *current_url_iter;
-        extracted_node.mapped().AssignUrl(*current_url_iter);
-        handles_in_use_.insert(std::move(extracted_node));
-      }
-      else
-      {
-        // Create new handles if no more are available.
-        handles_in_use_.emplace(*current_url_iter, *current_url_iter);
+        if (!available_handles_.empty())
+        {
+          // Reuse handles here
+          // Extract, and change Url.
+          auto extracted_node = available_handles_.extract(available_handles_.begin());
+          extracted_node.key() = url;
+          extracted_node.mapped().AssignUrl(url);
+          handles_in_use_.insert(std::move(extracted_node));
+        }
+        else
+        {
+          // Create new handles if no more are available.
+          handles_in_use_.emplace(url, url);
+        }
       }
     }
 

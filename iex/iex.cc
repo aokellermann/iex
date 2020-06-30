@@ -27,19 +27,9 @@ namespace
 // region Perform Curl
 
 /**
- * @see https://iexcloud.io/docs/api/#error-codes
- */
-constexpr const curl::HttpResponseCode kIexHttpTooManyRequests = 429;
-
-/**
  * Arbitrary number of retries.
  */
-const curl::RetryBehavior kDefaultRetryBehavior{3, {kIexHttpTooManyRequests}};
-
-/**
- * @see https://iexcloud.io/docs/api/#request-limits
- */
-constexpr const std::chrono::milliseconds kIexTimeout(10);
+const curl::RetryBehavior kDefaultRetryBehavior{3, {kIexHttpTooManyRequests}, true, kIexRequestLimitTimeout};
 
 /**
  * Used to ensure only one request at a time.
@@ -61,7 +51,7 @@ ValueWithErrorCode<curl::GetMap> PerformCurl(const curl::Url& url)
 {
   std::lock_guard lock(last_api_call_mutex);
   auto response = curl::Get(curl::UrlSet{url}, 0, kDefaultRetryBehavior);
-  std::this_thread::sleep_for(kIexTimeout);
+  std::this_thread::sleep_for(kIexRequestLimitTimeout);
   return response;
 }
 

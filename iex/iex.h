@@ -22,11 +22,29 @@
 
 #include "iex/api/forward.h"
 #include "iex/common.h"
+#include "iex/curl_wrapper.h"
 #include "iex/json_serializer.h"
 #include "iex/keychain.h"
 
 namespace iex
 {
+// region Request Limiting
+
+/**
+ * This magic number is determined by conducting prolonged stress tests. The IEX documentation is not accurate
+ * as of 6/28/20.
+ * @see IexManualTimeoutStress in api_test.cc
+ * @see https://iexcloud.io/docs/api/#request-limits
+ */
+constexpr const std::chrono::milliseconds kIexRequestLimitTimeout(35);
+
+/**
+ * @see https://iexcloud.io/docs/api/#error-codes
+ */
+constexpr const curl::HttpResponseCode kIexHttpTooManyRequests = 429;
+
+// endregion Request Limiting
+
 // region Common Types
 
 // region Symbol
