@@ -9,7 +9,7 @@
 #include <initializer_list>
 #include <thread>
 
-#include "iex/curl_wrapper.h"
+#include "iex/detail/curl_wrapper.h"
 
 namespace curl = iex::curl;
 

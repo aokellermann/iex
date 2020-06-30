@@ -21,13 +21,29 @@
 #include <vector>
 
 #include "iex/api/forward.h"
-#include "iex/common.h"
-#include "iex/curl_wrapper.h"
-#include "iex/json_serializer.h"
-#include "iex/keychain.h"
+#include "iex/detail/common.h"
+#include "iex/detail/curl_wrapper.h"
+#include "iex/detail/json_serializer.h"
 
 namespace iex
 {
+// region Key
+
+/**
+ * API key type
+ */
+using Key = std::string;
+
+struct Keys
+{
+  Key public_key;
+  Key secret_key;
+  Key public_sandbox_key;
+  Key secret_sandbox_key;
+};
+
+// endregion Key
+
 // region Request Limiting
 
 /**
@@ -82,9 +98,6 @@ template <typename T>
 using SymbolMap = std::unordered_map<Symbol, T, Symbol::Hasher>;
 
 // endregion Symbol
-
-// iex types
-using Keychain = key::Keychain;
 
 // Some generic types
 using Price = double;
@@ -358,29 +371,11 @@ struct AggregatedResponses
 // region Interface
 
 /**
- * This or the other Init() function must be called once at program startup, before any other threads have been created.
+ * This function must be called once at program startup, before any other threads have been created.
  * @return ErrorCode denoting whether initialization is successful. If failure, this library will not be able to
  * function properly and the program should exit.
  */
-ErrorCode Init(const Keychain::EnvironmentFlag&);
-
-/**
- * This or the other Init() function must be called once at program startup, before any other threads have been created.
- * @param keychain_directory The directory to use to store API keys.
- * @return ErrorCode denoting whether initialization is successful. If failure, this library will not be able to
- * function properly and the program should exit.
- */
-ErrorCode Init(file::Directory keychain_directory = file::Directory::HOME);
-
-/**
- * @see api::Keychain::Set
- */
-ErrorCode SetKey(Keychain::KeyType type, const Keychain::Key& key);
-
-/**
- * @return True if all API keys are set or false otherwise.
- */
-bool IsReadyForUse();
+ErrorCode Init(Keys keys);
 
 ValueWithErrorCode<AggregatedResponses> Get(const AggregatedRequests& requests);
 

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 project(iex
-        VERSION 0.0.1
+        VERSION 0.1.0
         LANGUAGES CXX
         DESCRIPTION "C++17 library for querying IEX Cloud REST API."
         )
@@ -47,24 +47,19 @@ message(STATUS "IEX_BUILD_TESTING: ${IEX_BUILD_TESTING}")
 
 # Set library headers and sources.
 set(iex_headers
-        common.h
-        utils.h
-        curl_wrapper.h
-        file_serializable.h
-        env.h
-        keychain.h
         iex.h
+        detail/common.h
+        detail/utils.h
+        detail/curl_wrapper.h
+        detail/singleton.h
         api/system_status.h
         api/quote.h
         api/company.h
         api/symbols.h
         )
 set(iex_sources
-        curl_wrapper.cc
-        file_serializable.cc
-        env.cc
-        keychain.cc
         iex.cc
+        detail/curl_wrapper.cc
         )
 
 # Specify source directory.
