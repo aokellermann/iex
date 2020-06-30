@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 project(iex
-        VERSION 0.0.1
+        VERSION 0.1.0
         LANGUAGES CXX
         DESCRIPTION "C++17 library for querying IEX Cloud REST API."
         )
