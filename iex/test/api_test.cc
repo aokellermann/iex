@@ -16,7 +16,29 @@
 #include "iex/curl_wrapper.h"
 #include "iex/iex.h"
 
-namespace curl = iex::curl;
+#ifdef IEX_ENABLE_STRESS_TESTS
+TEST(Api, Batch)
+{
+  iex::Symbol sym1("tsla");
+  iex::Symbol sym2("aapl");
+  constexpr const auto kEp1 = iex::Endpoint::Type::QUOTE;
+  constexpr const auto kEp2 = iex::Endpoint::Type::COMPANY;
+  const auto opts1 =
+      iex::RequestOptions{iex::Endpoint::Options{iex::Quote::DisplayPercentOption()}, {}, iex::DataType::SANDBOX};
+  const auto opts2 = iex::RequestOptions{iex::Endpoint::Options{}, {}, iex::DataType::SANDBOX};
+  iex::SymbolRequests sreqs;
+  iex::Requests reqs = iex::Requests{{kEp1, opts1}, {kEp2, opts2}};
+  sreqs.emplace(sym1, reqs);
+  sreqs.emplace(sym2, reqs);
+
+  const auto response = iex::Get(sreqs);
+  ASSERT_EQ(response.second, iex::ErrorCode());
+
+  const auto sym_ptr1 = response.first.Get(sym1)->Get<kEp1>(opts1);
+  const auto sym_ptr2 = response.first.Get(sym2)->Get<kEp2>(opts2);
+  EXPECT_NE(sym_ptr1, nullptr);
+  EXPECT_NE(sym_ptr2, nullptr);
+}
 
 TEST(Api, AggregatedAndBatch)
 {
@@ -45,29 +67,6 @@ TEST(Api, AggregatedAndBatch)
 
   const auto status_ptr = response.first.responses.Get<kEpStatus>(opts2);
   EXPECT_NE(status_ptr, nullptr);
-}
-
-TEST(Api, Batch)
-{
-  iex::Symbol sym1("tsla");
-  iex::Symbol sym2("aapl");
-  constexpr const auto kEp1 = iex::Endpoint::Type::QUOTE;
-  constexpr const auto kEp2 = iex::Endpoint::Type::COMPANY;
-  const auto opts1 =
-      iex::RequestOptions{iex::Endpoint::Options{iex::Quote::DisplayPercentOption()}, {}, iex::DataType::SANDBOX};
-  const auto opts2 = iex::RequestOptions{iex::Endpoint::Options{}, {}, iex::DataType::SANDBOX};
-  iex::SymbolRequests sreqs;
-  iex::Requests reqs = iex::Requests{{kEp1, opts1}, {kEp2, opts2}};
-  sreqs.emplace(sym1, reqs);
-  sreqs.emplace(sym2, reqs);
-
-  const auto response = iex::Get(sreqs);
-  ASSERT_EQ(response.second, iex::ErrorCode());
-
-  const auto sym_ptr1 = response.first.Get(sym1)->Get<kEp1>(opts1);
-  const auto sym_ptr2 = response.first.Get(sym2)->Get<kEp2>(opts2);
-  EXPECT_NE(sym_ptr1, nullptr);
-  EXPECT_NE(sym_ptr2, nullptr);
 }
 
 TEST(Api, Multithread)
@@ -167,6 +166,8 @@ TEST(Api, Multithread)
 
 TEST(Curl, IexManualTimeoutStress)
 {
+  namespace curl = iex::curl;
+
   const char* tk = getenv("IEX_SANDBOX_SECRET_KEY");
   ASSERT_NE(tk, nullptr);
 
@@ -213,3 +214,4 @@ TEST(Curl, IexManualTimeoutStress)
     EXPECT_EQ(ec, iex::ErrorCode());
   }
 }
+#endif
