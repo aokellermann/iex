@@ -170,6 +170,10 @@ install(FILES
         DESTINATION ${install_cmake_dir}
         )
 
+install(FILES
+        LICENSE
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/${PROJECT_NAME})
+
 include(CMakePackageConfigHelpers)
 
 write_basic_package_version_file(iexConfigVersion.cmake

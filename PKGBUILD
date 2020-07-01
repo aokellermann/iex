@@ -2,7 +2,7 @@
 
 _pkgname=iex
 pkgname="${_pkgname}-git"
-pkgver=0.0.1
+pkgver=0.1.0
 pkgrel=1
 pkgdesc="C++17 library for querying IEX Cloud API."
 arch=("x86_64")
@@ -28,5 +28,4 @@ build() {
 
 package() {
   cmake --build "${_pkgname}/build" --target install -- DESTDIR="${pkgdir}"
-  install -Dm644 "${_pkgname}/LICENSE" "${pkgdir}/usr/share/licenses/${_pkgname}/LICENSE"
 }
