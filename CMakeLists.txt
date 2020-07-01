@@ -48,19 +48,14 @@ message(STATUS "IEX_BUILD_TESTING: ${IEX_BUILD_TESTING}")
 # Set library headers and sources.
 set(iex_headers
         iex.h
-        detail/common.h
-        detail/utils.h
-        detail/curl_wrapper.h
-        detail/singleton.h
-        api/system_status.h
-        api/quote.h
-        api/company.h
-        api/symbols.h
         )
 set(iex_sources
         iex.cc
         detail/curl_wrapper.cc
         )
+
+set(iex_detail_path iex/detail)
+set(iex_api_path iex/api)
 
 # Specify source directory.
 list(TRANSFORM iex_headers PREPEND "iex/")
@@ -93,6 +88,10 @@ install(TARGETS ${IEX_LIBRARIES}
 
 # Install public header(s).
 install(FILES ${iex_headers}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iex
+        COMPONENT development
+        )
+install(DIRECTORY ${iex_detail_path} ${iex_api_path}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iex
         COMPONENT development
         )
