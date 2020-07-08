@@ -218,10 +218,23 @@ TEST(Curl, IexManualTimeoutStress)
 
 TEST(Api, Tuple)
 {
-  auto res2 = iex::Get<iex::Endpoint::QUOTE, iex::Endpoint::COMPANY>(iex::Symbol("tsla"), iex::RequestOptions{});
-  ASSERT_EQ(res2.second, iex::ErrorCode());
+  auto res = iex::Get<iex::Endpoint::QUOTE, iex::Endpoint::COMPANY>(iex::Symbol("tsla"), iex::RequestOptions{});
+  ASSERT_EQ(res.second, iex::ErrorCode());
 
-  auto& [quote2, company] = res2.first;
-  EXPECT_NE(quote2, nullptr);
+  auto& [quote, company] = res.first;
+  EXPECT_NE(quote, nullptr);
   EXPECT_NE(company, nullptr);
+}
+
+TEST(Api, TupleMap)
+{
+  auto res = iex::Get<iex::Endpoint::QUOTE, iex::Endpoint::COMPANY>(iex::SymbolSet{iex::Symbol("tsla"), iex::Symbol("aapl")}, iex::RequestOptions{});
+  ASSERT_EQ(res.second, iex::ErrorCode());
+
+  for (const auto& [symbol, tuple] : res.first)
+  {
+    const auto& [quote, company] = tuple;
+    EXPECT_NE(quote, nullptr);
+    EXPECT_NE(company, nullptr);
+  }
 }

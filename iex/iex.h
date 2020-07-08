@@ -488,6 +488,37 @@ Get(const Symbol& symbol, const RequestOptions& opts = {})
              : response_type{{}, std::move(resp.second)};
 }
 
+template <Endpoint::Type... Types>
+std::enable_if_t<std::conjunction_v<detail::IsPlural<Types...>, detail::AreSymbolEndpoints<Types...>>,
+                 ValueWithErrorCode<SymbolMap<EndpointTuple<Types...>>>>
+Get(const SymbolSet& symbols, const RequestOptions& opts = {})
+{
+  const Requests requests = {{Types, opts}...};
+  SymbolRequests srequests;
+  srequests.reserve(symbols.size());
+  for (const auto& symbol : symbols)
+  {
+    srequests.emplace(symbol, requests);
+  }
+
+  auto resp = Get(srequests);
+  if (resp.second.Failure())
+  {
+    return {{}, std::move(resp.second)};
+  }
+
+  const Responses* sresps;
+  SymbolMap<EndpointTuple<Types...>> map;
+  map.reserve(symbols.size());
+  for (const auto& symbol : symbols)
+  {
+    sresps = resp.first.Get(symbol);
+    map.emplace(symbol, std::make_tuple(sresps->Get<Types>()...));
+  }
+
+  return {std::move(map), {}};
+}
+
 template <Endpoint::Type Type>
 std::enable_if_t<detail::IsBasicEndpoint<Type>::value, ValueWithErrorCode<EndpointPtr<EndpointTypename<Type>>>> Get(
     const RequestOptions& request_options = {})
