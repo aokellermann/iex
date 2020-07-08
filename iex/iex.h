@@ -136,7 +136,7 @@ using EndpointPtr = std::shared_ptr<const E>;
 /**
  * Base class for all endpoints.
  */
-class Endpoint
+class Endpoint : public json::JsonBidirectionalSerializable
 {
  public:
   // region Types
@@ -223,12 +223,20 @@ class Endpoint
 
   inline Endpoint(Name name, json::JsonStorage data) : data_(std::move(data)), name_(std::move(name)) {}
 
-  virtual ~Endpoint() = default;
+  ~Endpoint() override = default;
 
   [[nodiscard]] inline std::string GetName() const noexcept { return name_; }
 
+  // region Json
+
+  [[nodiscard]] ValueWithErrorCode<json::Json> Serialize() const override { return data_.Serialize(); }
+
+  ErrorCode Deserialize(const json::Json& input_json) override { return data_.Deserialize(input_json); }
+
+  // endregion Json
+
  protected:
-  const json::JsonStorage data_;
+  json::JsonStorage data_;
 
  private:
   const Name name_;
