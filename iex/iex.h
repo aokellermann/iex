@@ -14,6 +14,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <tuple>
 #include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
@@ -279,6 +280,54 @@ using EndpointTypename = typename EndpointTypedefMap<T>::type;
 template <typename T>
 using EndpointDataMap = std::unordered_map<Version, std::unordered_map<DataType, T>>;
 
+namespace detail
+{
+// region SFINAE
+
+template <Endpoint::Type... Types>
+struct IsEmpty : std::false_type
+{
+};
+
+template <>
+struct IsEmpty<> : std::true_type
+{
+};
+
+template <Endpoint::Type... Types>
+struct IsSingleton : std::bool_constant<sizeof...(Types) == 1>
+{
+};
+
+template <Endpoint::Type... Types>
+struct IsPlural
+    : std::bool_constant<std::conjunction_v<std::negation<IsEmpty<Types...>>, std::negation<IsSingleton<Types...>>>>
+{
+};
+
+template <Endpoint::Type Type>
+struct IsBasicEndpoint : std::bool_constant<Type == Endpoint::Type::SYSTEM_STATUS or Type == Endpoint::Type::SYMBOLS>
+{
+};
+
+template <Endpoint::Type Type>
+struct IsSymbolEndpoint : std::bool_constant<Type == Endpoint::Type::QUOTE or Type == Endpoint::Type::COMPANY>
+{
+};
+
+template <Endpoint::Type... Types>
+struct AreBasicEndpoints : std::bool_constant<std::conjunction_v<IsBasicEndpoint<Types>...>>
+{
+};
+
+template <Endpoint::Type... Types>
+struct AreSymbolEndpoints : std::bool_constant<std::conjunction_v<IsSymbolEndpoint<Types>...>>
+{
+};
+
+// endregion SFINAE
+}  // namespace detail
+
 // endregion Endpoint
 
 // region Requests and Responses
@@ -411,29 +460,49 @@ inline ValueWithErrorCode<SymbolResponses> Get(const SymbolRequest& request)
   return Get(SymbolRequests{{request.symbol, {{request.type, request.options}}}});
 }
 
-template <Endpoint::Type T>
-inline ValueWithErrorCode<EndpointPtr<EndpointTypename<T>>> Get(const RequestOptions& request_options = {})
-{
-  static_assert(T == Endpoint::Type::SYMBOLS || T == Endpoint::Type::SYSTEM_STATUS, "T is not of valid type");
+template <Endpoint::Type... Types>
+using EndpointTuple =
+    std::enable_if_t<std::negation_v<detail::IsEmpty<Types...>>, std::tuple<EndpointPtr<EndpointTypename<Types>>...>>;
 
-  const auto response = Get(Request{T, request_options});
-  return {response.first.Get<T>(request_options), std::move(response.second)};
+template <Endpoint::Type... Types>
+std::enable_if_t<std::conjunction_v<detail::IsPlural<Types...>, detail::AreBasicEndpoints<Types...>>,
+                 ValueWithErrorCode<EndpointTuple<Types...>>>
+Get(const RequestOptions& opts = {})
+{
+  using response_type = ValueWithErrorCode<EndpointTuple<Types...>>;
+  auto resps = Get(Requests{{Types, opts}...});
+  return (resps.second.Success()) ? response_type{std::make_tuple(resps.first.Get<Types>()...), {}}
+                                  : response_type{{}, std::move(resps.second)};
 }
 
-template <Endpoint::Type T>
-inline ValueWithErrorCode<EndpointPtr<EndpointTypename<T>>> Get(const Symbol& symbol,
-                                                                const RequestOptions& request_options = {})
+template <Endpoint::Type... Types>
+std::enable_if_t<std::conjunction_v<detail::IsPlural<Types...>, detail::AreSymbolEndpoints<Types...>>,
+                 ValueWithErrorCode<EndpointTuple<Types...>>>
+Get(const Symbol& symbol, const RequestOptions& opts = {})
 {
-  static_assert(T == Endpoint::Type::QUOTE || T == Endpoint::Type::COMPANY, "T is not of valid type");
+  auto resp = Get(SymbolRequests{{symbol, {{Types, opts}...}}});
+  const Responses* sresps;
+  using response_type = ValueWithErrorCode<EndpointTuple<Types...>>;
+  return (resp.second.Success() && (sresps = resp.first.Get(symbol)))
+             ? response_type{std::make_tuple(sresps->Get<Types>()...), {}}
+             : response_type{{}, std::move(resp.second)};
+}
 
-  const auto response = Get(SymbolRequest{symbol, {T, request_options}});
-  const auto* const ptr = response.first.Get(symbol);
-  if (ptr == nullptr)
-  {
-    return {{}, ErrorCode{"SymbolResponses::Get return nullptr"}};
-  }
+template <Endpoint::Type Type>
+std::enable_if_t<detail::IsBasicEndpoint<Type>::value, ValueWithErrorCode<EndpointPtr<EndpointTypename<Type>>>> Get(
+    const RequestOptions& request_options = {})
+{
+  auto response = Get(Request{Type, request_options});
+  return ValueWithErrorCode<EndpointPtr<EndpointTypename<Type>>>{response.first.Get<Type>(request_options),
+                                                                 std::move(response.second)};
+}
 
-  return {ptr->Get<T>(request_options), std::move(response.second)};
+template <Endpoint::Type Type>
+std::enable_if_t<detail::IsSymbolEndpoint<Type>::value, ValueWithErrorCode<EndpointPtr<EndpointTypename<Type>>>> Get(
+    const Symbol& symbol, const RequestOptions& request_options = {})
+{
+  auto response = Get(SymbolRequest{symbol, {Type, request_options}});
+  return {response.first.Get(symbol)->Get<Type>(request_options), std::move(response.second)};
 }
 
 // endregion Interface

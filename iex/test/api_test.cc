@@ -215,3 +215,13 @@ TEST(Curl, IexManualTimeoutStress)
   }
 }
 #endif
+
+TEST(Api, Tuple)
+{
+  auto res2 = iex::Get<iex::Endpoint::QUOTE, iex::Endpoint::COMPANY>(iex::Symbol("tsla"), iex::RequestOptions{});
+  ASSERT_EQ(res2.second, iex::ErrorCode());
+
+  auto& [quote2, company] = res2.first;
+  EXPECT_NE(quote2, nullptr);
+  EXPECT_NE(company, nullptr);
+}
