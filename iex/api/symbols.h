@@ -124,7 +124,10 @@ class Symbols : public Endpoint
     const json::JsonStorage data_;
   };
 
-  explicit Symbols(json::JsonStorage data = json::JsonStorage{}) : Endpoint("ref-data/symbols", std::move(data)) {}
+  explicit Symbols(json::JsonStorage data = json::JsonStorage{})
+      : Endpoint("ref-data/symbols", Type::SYMBOLS, std::move(data))
+  {
+  }
 
   ~Symbols() override = default;
 

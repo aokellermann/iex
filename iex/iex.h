@@ -221,16 +221,19 @@ class Endpoint : public json::JsonBidirectionalSerializable
 
   // endregion Types
 
-  inline Endpoint(Name name, json::JsonStorage data)
+  inline Endpoint(Name name, Type type, json::JsonStorage data)
       : data_(std::move(data)),
         name_(std::move(name)),
+        type_(std::move(type)),
         timestamp_(std::chrono::duration_cast<Timestamp>(std::chrono::system_clock::now().time_since_epoch()))
   {
   }
 
   ~Endpoint() override = default;
 
-  [[nodiscard]] inline std::string GetName() const noexcept { return name_; }
+  [[nodiscard]] inline Name GetName() const noexcept { return name_; }
+
+  [[nodiscard]] inline Type GetType() const noexcept { return type_; }
 
   [[nodiscard]] inline Timestamp GetTimestamp() const noexcept { return timestamp_; }
 
@@ -248,14 +251,15 @@ class Endpoint : public json::JsonBidirectionalSerializable
  private:
   const Name name_;
   const Timestamp timestamp_;
+  const Type type_;
 };
 
 struct SymbolEndpoint : Endpoint
 {
   SymbolEndpoint() = delete;
 
-  SymbolEndpoint(Symbol sym, Endpoint::Name name, json::JsonStorage data)
-      : Endpoint(std::move(name), std::move(data)), symbol(std::move(sym))
+  SymbolEndpoint(Symbol sym, Endpoint::Name name, Type type, json::JsonStorage data)
+      : Endpoint(std::move(name), std::move(type), std::move(data)), symbol(std::move(sym))
   {
   }
 
