@@ -4,8 +4,6 @@
  * @copyright 2020 Antony Kellermann
  */
 
-#include "iex.h"
-
 #include <functional>
 #include <mutex>
 #include <thread>
@@ -19,6 +17,7 @@
 #include "iex/detail/json_serializer.h"
 #include "iex/detail/singleton.h"
 #include "iex/detail/utils.h"
+#include "iex/iex.h"
 
 namespace iex
 {
