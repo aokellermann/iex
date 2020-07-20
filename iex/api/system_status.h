@@ -30,10 +30,12 @@ class SystemStatus : public Endpoint
  public:
   enum MemberType
   {
-    STATUS,
+    ENUM_FIRST,
+    STATUS = ENUM_FIRST,
     VERSION,
     TIMESTAMP,
-    CURRENT_MONTH_API_CALLS
+    CURRENT_MONTH_API_CALLS,
+    ENUM_LAST,
   };
 
  private:

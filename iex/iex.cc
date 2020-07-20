@@ -24,6 +24,31 @@ namespace iex
 {
 namespace
 {
+// region Magic Switch
+
+using EnumType = int;
+
+template <EnumType... Is>
+struct Indices
+{
+  using type = Indices<Is...>;
+};
+
+template <EnumType Max, EnumType... Is>
+struct MakeIndices : MakeIndices<Max - 1, Max - 1, Is...>
+{
+};
+
+template <EnumType... Is>
+struct MakeIndices<0, Is...> : Indices<Is...>
+{
+};
+
+template <EnumType Max>
+using MakeIndicesType = typename MakeIndices<Max>::type;
+
+// endregion Magic Switch
+
 // region Perform Curl
 
 /**
@@ -129,79 +154,38 @@ Url GetUrl(const SymbolSet& symbols, const Endpoint::TypeSet& types, const Reque
   return Url(std::move(url_string), std::move(params));
 }
 
-EndpointDataMap<UrlEndpointMap> GetUrls(const Requests& requests)
+UrlEndpointMap GetUrls(const Requests& requests, const RequestOptions& options)
 {
-  EndpointDataMap<UrlEndpointMap> url_map;
+  UrlEndpointMap url_map;
 
-  for (const auto& [type, opts] : requests)
+  for (const auto& request : requests)
   {
-    Url url = GetUrl(type, opts);
+    Url url = GetUrl(request, options);
     if (url.Validity().Success())
     {
-      url_map[opts.version][opts.data_type][url].insert(type);
+      url_map[url].insert(request);
     }
   }
 
   return url_map;
 }
 
-SymbolMap<EndpointDataMap<UrlEndpointMap>> GetUrls(const SymbolRequests& requests)
+SymbolMap<UrlEndpointMap> GetUrls(const SymbolRequests& requests, const RequestOptions& options)
 {
-  // In the future, this function may call another file/class to optimize calls.
-  // For now, it performs no optimization.
-
   // Only stock endpoint may be batch called according to documentation. https://iexcloud.io/docs/api/#batch-requests
 
-  struct BatchMember
-  {
-    const Symbol& symbol;
-    const Endpoint::Type& type;
-    const Endpoint::Options& opts;
-  };
+  Url url = GetUrl(requests.symbols, requests.requests, options);
+  const UrlEndpointMap url_endpoint_map =
+      url.Validity().Success() ? UrlEndpointMap{{std::move(url), requests.requests}} : UrlEndpointMap{};
 
-  EndpointDataMap<std::vector<BatchMember>> batch_map;
-  for (const auto& [symbol, reqs] : requests)
+  SymbolMap<UrlEndpointMap> symbol_map;
+  symbol_map.reserve(requests.symbols.size());
+  for (const auto& symbol : requests.symbols)
   {
-    for (const auto& [type, opts] : reqs)
-    {
-      batch_map[opts.version][opts.data_type].emplace_back(BatchMember{symbol, type, opts.options});
-    }
+    symbol_map.emplace(symbol, url_endpoint_map);
   }
 
-  SymbolMap<EndpointDataMap<UrlEndpointMap>> symbol_endpoint_map;
-
-  SymbolSet symbols;
-  Endpoint::TypeSet types;
-  Endpoint::Options options;
-  for (const auto& [version, data_map] : batch_map)
-  {
-    for (const auto& [data_type, members] : data_map)
-    {
-      symbols.clear();
-      types.clear();
-      options.clear();
-      symbols.reserve(members.size());
-      types.reserve(members.size());
-
-      for (const auto& member : members)
-      {
-        symbols.insert(member.symbol);
-        types.insert(member.type);
-        options.insert(options.end(), member.opts.begin(), member.opts.end());
-      }
-
-      Url url = GetUrl(symbols, types, RequestOptions{options, version, data_type});
-      if (url.Validity().Success())
-      {
-        for (const auto& symbol : symbols)
-        {
-          symbol_endpoint_map[symbol][version][data_type][url].insert(types.begin(), types.end());
-        }
-      }
-    }
-  }
-
-  return symbol_endpoint_map;
+  return symbol_map;
 }
 
 // endregion Url Helpers
@@ -238,8 +222,9 @@ ValueWithErrorCode<EndpointPtr<E>> EndpointFactory(const json::Json& input_json,
   }
 }
 
-ErrorCode PutEndpoint(AggregatedResponses& aggregated_responses, const curl::GetMap& get_map, const Version& version,
-                      const DataType& data_type, const Url& url, const Endpoint::TypeSet& types,
+// endregion Endpoint Factories
+
+ErrorCode PutEndpoint(AggregatedResponses& aggregated_responses, const curl::GetMap& get_map, const Url& url, const Endpoint::TypeSet& types,
                       const Symbol& symbol = {})
 {
   const auto url_json = get_map.find(url);
@@ -259,6 +244,7 @@ ErrorCode PutEndpoint(AggregatedResponses& aggregated_responses, const curl::Get
   for (const auto& type : types)
   {
     const json::Json* jendpoint = jsym == nullptr ? nullptr : &(*jsym->find(kEndpoints[type]->GetName()));
+    auto indices = MakeIndicesType<>
 
     switch (type)
     {
@@ -301,6 +287,9 @@ ErrorCode PutEndpoint(AggregatedResponses& aggregated_responses, const curl::Get
 
     std::pair<EndpointPtr<>, RequestOptions> put_pair{new_endpoint_ptr.first,
                                                       RequestOptions{Endpoint::Options{}, version, data_type}};
+
+
+
     switch (type)
     {
       case Endpoint::Type::SYMBOLS:
@@ -323,8 +312,6 @@ ErrorCode PutEndpoint(AggregatedResponses& aggregated_responses, const curl::Get
 
   return {};
 }
-
-// endregion Endpoint Factories
 
 // region Init
 
@@ -358,15 +345,15 @@ ErrorCode Init(Keys keys)
   return InnerInit();
 }
 
-ValueWithErrorCode<AggregatedResponses> Get(const AggregatedRequests& requests)
+ValueWithErrorCode<AggregatedResponses> Get(const AggregatedRequests& requests, const RequestOptions& options)
 {
-  if (requests.requests.empty() && requests.symbol_requests.empty())
+  if (requests.requests.empty() && (requests.symbol_requests.symbols.empty() || requests.symbol_requests.requests.empty()))
   {
     return {{}, {"iex::Get() failed", ErrorCode("AggregatedRequests is empty")}};
   }
 
-  const auto non_batch_urls = GetUrls(requests.requests);
-  const auto batch_urls = GetUrls(requests.symbol_requests);
+  const auto non_batch_urls = GetUrls(requests.requests, options);
+  const auto batch_urls = GetUrls(requests.symbol_requests, options);
 
   curl::UrlSet url_set;
   const auto append_urls = [&url_set](const EndpointDataMap<UrlEndpointMap>& edm) {

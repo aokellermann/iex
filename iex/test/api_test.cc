@@ -228,10 +228,10 @@ TEST(Api, Tuple)
 
 TEST(Api, TupleMap)
 {
-  auto res = iex::Get<iex::Endpoint::QUOTE, iex::Endpoint::COMPANY>(iex::SymbolSet{iex::Symbol("tsla"), iex::Symbol("aapl")}, iex::RequestOptions{});
+  auto res = iex::Get<iex::Endpoint::QUOTE, iex::Endpoint::COMPANY, iex::Endpoint::QUOTE>(iex::SymbolSet{iex::Symbol("tsla"), iex::Symbol("aapl")}, iex::RequestOptions{});
   ASSERT_EQ(res.second, iex::ErrorCode());
 
-  for (const auto& [symbol, tuple] : res.first)
+  for (const auto& [symbol, tuple, quote2] : res.first)
   {
     const auto& [quote, company] = tuple;
     EXPECT_NE(quote, nullptr);
