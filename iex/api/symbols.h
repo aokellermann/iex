@@ -43,11 +43,12 @@ class Symbols : public Endpoint
  public:
   enum MemberType
   {
+    ENUM_FIRST,
     /**
      * refers to Exchange using IEX Supported Exchanges list
      * @see https://iexcloud.io/docs/api/#u-s-exchanges
      */
-    EXCHANGE,
+    EXCHANGE = ENUM_FIRST,
     /**
      * refers to the name of the company or security.
      */
@@ -98,7 +99,8 @@ class Symbols : public Endpoint
     /**
      * CIK number for the security if available
      */
-    CIK
+    CIK,
+    ENUM_LAST,
   };
 
  private:

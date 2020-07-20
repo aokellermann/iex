@@ -151,10 +151,11 @@ class Endpoint
    */
   enum Type
   {
+    ENUM_FIRST,
     /**
      * @see https://iexcloud.io/docs/api/#symbols
      */
-    SYMBOLS,
+    SYMBOLS = ENUM_FIRST,
     /**
      * @see https://iexcloud.io/docs/api/#api-system-metadata
      */
@@ -169,6 +170,7 @@ class Endpoint
      * @see https://iexcloud.io/docs/api/#company
      */
     COMPANY,
+    ENUM_LAST,
   };
 
   /**
