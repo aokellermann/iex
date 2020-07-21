@@ -236,10 +236,7 @@ struct SymbolEndpoint : Endpoint
 {
   SymbolEndpoint() = delete;
 
-  SymbolEndpoint(Symbol sym, json::JsonStorage data)
-      : Endpoint(std::move(data)), symbol(std::move(sym))
-  {
-  }
+  SymbolEndpoint(Symbol sym, json::JsonStorage data) : Endpoint(std::move(data)), symbol(std::move(sym)) {}
 
   const Symbol symbol;
 };
@@ -357,22 +354,23 @@ Url GetUrl(const SymbolSet& symbols, const Endpoint::OptionsObject& options)
 template <Endpoint::Type Type>
 using EndpointPtr = std::shared_ptr<const EndpointTypename<Type>>;
 
-template <Endpoint::Type Type, typename std::enable_if_t<detail::IsBasicEndpoint<Type>::value, int> = 0>
+template <Endpoint::Type Type, typename = std::enable_if_t<detail::IsBasicEndpoint<Type>::value, int>>
 using BasicEndpointPtr = EndpointPtr<Type>;
 
-template <Endpoint::Type Type, typename std::enable_if_t<detail::IsSymbolEndpoint<Type>::value, int> = 0>
+template <Endpoint::Type Type, typename = std::enable_if_t<detail::IsSymbolEndpoint<Type>::value, int>>
 using SymbolEndpointPtr = EndpointPtr<Type>;
 
-template <Endpoint::Type... Types>
-using EndpointTuple = std::enable_if_t<std::negation_v<detail::IsEmpty<Types...>>, std::tuple<EndpointPtr<Types>...>>;
+namespace detail
+{
+template <template <Endpoint::Type, typename...> typename PtrType, Endpoint::Type... Types>
+using EndpointTuple = std::enable_if_t<detail::IsPlural<Types...>::value, std::tuple<PtrType<Types>...>>;
+}  // namespace detail
 
 template <Endpoint::Type... Types>
-using BasicEndpointTuple =
-    std::enable_if_t<std::negation_v<detail::IsEmpty<Types...>>, std::tuple<BasicEndpointPtr<Types>...>>;
+using BasicEndpointTuple = detail::EndpointTuple<BasicEndpointPtr, Types...>;
 
 template <Endpoint::Type... Types>
-using SymbolEndpointTuple =
-    std::enable_if_t<std::negation_v<detail::IsEmpty<Types...>>, std::tuple<SymbolEndpointPtr<Types>...>>;
+using SymbolEndpointTuple = detail::EndpointTuple<SymbolEndpointPtr, Types...>;
 
 template <Endpoint::Type Type>
 auto EndpointFactory(const json::Json& input_json)
