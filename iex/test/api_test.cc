@@ -18,6 +18,13 @@
 
 static const iex::Endpoint::OptionsObject kOptions{{}, {}, iex::DataType::SANDBOX};
 
+static const bool kCI = std::getenv("CI") != nullptr;
+
+void SleepIfCI()
+{
+  if (kCI) std::this_thread::sleep_for(std::chrono::milliseconds(100));
+}
+
 #ifdef IEX_ENABLE_STRESS_TESTS
 
 template <iex::Endpoint::Type Type>
@@ -137,6 +144,8 @@ TEST(Api, IexManualTimeoutStress)
 
 TEST(Api, SingleSymbolSingleEndpoint)
 {
+  SleepIfCI();
+
   const auto res = iex::Get<iex::Endpoint::QUOTE>(iex::Symbol("tsla"), kOptions);
   ASSERT_EQ(res.second, iex::ErrorCode());
 
@@ -146,6 +155,8 @@ TEST(Api, SingleSymbolSingleEndpoint)
 
 TEST(Api, SingleSymbolMultipleEndpoint)
 {
+  SleepIfCI();
+
   const auto res = iex::Get<iex::Endpoint::QUOTE, iex::Endpoint::COMPANY>(iex::Symbol("tsla"), kOptions);
   ASSERT_EQ(res.second, iex::ErrorCode());
 
@@ -156,6 +167,8 @@ TEST(Api, SingleSymbolMultipleEndpoint)
 
 TEST(Api, MultipleSymbolSingleEndpoint)
 {
+  SleepIfCI();
+
   const auto res = iex::Get<iex::Endpoint::QUOTE>(iex::SymbolSet{iex::Symbol("tsla"), iex::Symbol("aapl")}, kOptions);
   ASSERT_EQ(res.second, iex::ErrorCode());
 
@@ -167,6 +180,8 @@ TEST(Api, MultipleSymbolSingleEndpoint)
 
 TEST(Api, MultipleSymbolMultipleEndpoint)
 {
+  SleepIfCI();
+
   const auto res = iex::Get<iex::Endpoint::QUOTE, iex::Endpoint::COMPANY>(
       iex::SymbolSet{iex::Symbol("tsla"), iex::Symbol("aapl")}, kOptions);
   ASSERT_EQ(res.second, iex::ErrorCode());
