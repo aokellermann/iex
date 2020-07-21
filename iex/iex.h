@@ -429,8 +429,9 @@ ValueWithErrorCode<SymbolMap<SymbolEndpointTuple<Types...>>> Get(const SymbolSet
     map.reserve(symbols.size());
     for (const auto& symbol : symbols)
     {
-      map.emplace(symbol,
-                  std::make_tuple(EndpointFactory<Types>(json[symbol.Get()][EndpointTypedefMap<Types>::kPath])...));
+      map.emplace(
+          symbol,
+          std::make_tuple(EndpointFactory<Types>(json[symbol.Get()][EndpointTypedefMap<Types>::kPath], symbol)...));
     }
 
     return {std::move(map), {}};
