@@ -419,66 +419,69 @@ ValueWithErrorCode<BasicEndpointPtr<Type>> Get(const Endpoint::OptionsObject& op
   }
 }
 
-template <Endpoint::Type... Types, std::enable_if_t<IsPlural<Types...>::value, int> = 0>
-ValueWithErrorCode<SymbolMap<SymbolEndpointTuple<Types...>>> Get(const SymbolSet& symbols,
-                                                                 const Endpoint::OptionsObject& options)
+template <Endpoint::Type... Types>
+auto Get(const SymbolSet& symbols, const Endpoint::OptionsObject& options)
 {
-  const auto url = GetUrl<Types...>(symbols, options);
-  auto vec = PerformCurl(url);
-  if (vec.second.Failure())
+  if constexpr (IsPlural<Types...>::value)
   {
-    return {{}, std::move(vec.second)};
-  }
+    using return_type = ValueWithErrorCode<SymbolMap<SymbolEndpointTuple<Types...>>>;
 
-  try
-  {
-    auto json = vec.first[url].first;
-    SymbolMap<SymbolEndpointTuple<Types...>> map;
-    map.reserve(symbols.size());
-    for (const auto& symbol : symbols)
+    const auto url = GetUrl<Types...>(symbols, options);
+    auto vec = PerformCurl(url);
+    if (vec.second.Failure())
     {
-      map.emplace(
-          symbol,
-          std::make_tuple(EndpointFactory<Types>(json[symbol.Get()][EndpointTypedefMap<Types>::kPath], symbol)...));
+      return return_type{{}, std::move(vec.second)};
     }
 
-    return {std::move(map), {}};
-  }
-  catch (const std::exception& e)
-  {
-    return {{}, ErrorCode("Get() failed", ErrorCode(e.what()))};
-  }
-}
-
-template <Endpoint::Type Type>
-ValueWithErrorCode<SymbolMap<SymbolEndpointPtr<Type>>> Get(const SymbolSet& symbols,
-                                                           const Endpoint::OptionsObject& options)
-{
-  const auto url = GetUrl<Type>(symbols, options);
-  auto vec = PerformCurl(url);
-  if (vec.second.Failure())
-  {
-    return {{}, std::move(vec.second)};
-  }
-
-  try
-  {
-    auto json = vec.first[url].first;
-    SymbolMap<SymbolEndpointPtr<Type>> map;
-    map.reserve(symbols.size());
-    for (const auto& symbol : symbols)
+    try
     {
-      map.emplace(symbol, EndpointFactory<Type>(json[symbol.Get()][EndpointTypedefMap<Type>::kPath], symbol));
+      auto json = vec.first[url].first;
+      SymbolMap<SymbolEndpointTuple<Types...>> map;
+      map.reserve(symbols.size());
+      for (const auto& symbol : symbols)
+      {
+        map.emplace(
+            symbol,
+            std::make_tuple(EndpointFactory<Types>(json[symbol.Get()][EndpointTypedefMap<Types>::kPath], symbol)...));
+      }
+
+      return return_type{std::move(map), {}};
+    }
+    catch (const std::exception& e)
+    {
+      return return_type{{}, ErrorCode("Get() failed", ErrorCode(e.what()))};
+    }
+  }
+  else
+  {
+    constexpr Endpoint::Type kType = std::get<0>(std::make_tuple(Types...));
+    using return_type = ValueWithErrorCode<SymbolMap<SymbolEndpointPtr<kType>>>;
+
+    const auto url = GetUrl<kType>(symbols, options);
+    auto vec = PerformCurl(url);
+    if (vec.second.Failure())
+    {
+      return return_type{{}, std::move(vec.second)};
     }
 
-    return {std::move(map), {}};
-  }
-  catch (const std::exception& e)
-  {
-    return {{}, ErrorCode("Get() failed", ErrorCode(e.what()))};
+    try
+    {
+      auto json = vec.first[url].first;
+      SymbolMap<SymbolEndpointPtr<kType>> map;
+      map.reserve(symbols.size());
+      for (const auto& symbol : symbols)
+      {
+        map.emplace(symbol, EndpointFactory<kType>(json[symbol.Get()][EndpointTypedefMap<kType>::kPath], symbol));
+      }
+
+      return return_type{std::move(map), {}};
+    }
+    catch (const std::exception& e)
+    {
+      return return_type{{}, ErrorCode("Get() failed", ErrorCode(e.what()))};
+    }
   }
 }
-
 // endregion Curl
 }  // namespace detail
 
@@ -503,16 +506,8 @@ ErrorCode Init(Keys keys);
 template <Endpoint::Type... Types>
 auto Get(const Symbol& symbol, const Endpoint::OptionsObject& options = {})
 {
-  if constexpr (detail::IsPlural<Types...>::value)
-  {
-    auto [map, ec] = detail::Get<Types...>({symbol}, options);
-    return ValueWithErrorCode<typename decltype(map)::mapped_type>{std::move(map[symbol]), std::move(ec)};
-  }
-  else
-  {
-    auto [map, ec] = detail::Get<std::get<0>(std::make_tuple(Types...))>({symbol}, options);
-    return ValueWithErrorCode<typename decltype(map)::mapped_type>{std::move(map[symbol]), std::move(ec)};
-  }
+  auto [map, ec] = detail::Get<Types...>({symbol}, options);
+  return ValueWithErrorCode<typename decltype(map)::mapped_type>{std::move(map[symbol]), std::move(ec)};
 }
 
 /**
@@ -525,14 +520,7 @@ auto Get(const Symbol& symbol, const Endpoint::OptionsObject& options = {})
 template <Endpoint::Type... Types>
 auto Get(const SymbolSet& symbols, const Endpoint::OptionsObject& options = {})
 {
-  if constexpr (detail::IsPlural<Types...>::value)
-  {
-    return detail::Get<Types...>(symbols, options);
-  }
-  else
-  {
-    return detail::Get<std::get<0>(std::make_tuple(Types...))>(symbols, options);
-  }
+  return detail::Get<Types...>(symbols, options);
 }
 
 /**
