@@ -354,16 +354,16 @@ Url GetUrl(const SymbolSet& symbols, const Endpoint::OptionsObject& options)
 template <Endpoint::Type Type>
 using EndpointPtr = std::shared_ptr<const EndpointTypename<Type>>;
 
-template <Endpoint::Type Type, typename = std::enable_if_t<detail::IsBasicEndpoint<Type>::value, int>>
+template <Endpoint::Type Type, typename = std::enable_if_t<detail::IsBasicEndpoint<Type>::value>>
 using BasicEndpointPtr = EndpointPtr<Type>;
 
-template <Endpoint::Type Type, typename = std::enable_if_t<detail::IsSymbolEndpoint<Type>::value, int>>
+template <Endpoint::Type Type, typename = std::enable_if_t<detail::IsSymbolEndpoint<Type>::value>>
 using SymbolEndpointPtr = EndpointPtr<Type>;
 
 namespace detail
 {
 template <template <Endpoint::Type, typename...> typename PtrType, Endpoint::Type... Types>
-using EndpointTuple = std::enable_if_t<detail::IsPlural<Types...>::value, std::tuple<PtrType<Types>...>>;
+using EndpointTuple = std::enable_if_t<std::negation_v<detail::IsEmpty<Types...>>, std::tuple<PtrType<Types>...>>;
 }  // namespace detail
 
 template <Endpoint::Type... Types>
@@ -411,7 +411,7 @@ ValueWithErrorCode<BasicEndpointPtr<Type>> Get(const Endpoint::OptionsObject& op
   }
 }
 
-template <Endpoint::Type... Types>
+template <Endpoint::Type... Types, std::enable_if_t<IsPlural<Types...>::value, int> = 0>
 ValueWithErrorCode<SymbolMap<SymbolEndpointTuple<Types...>>> Get(const SymbolSet& symbols,
                                                                  const Endpoint::OptionsObject& options)
 {
@@ -442,6 +442,35 @@ ValueWithErrorCode<SymbolMap<SymbolEndpointTuple<Types...>>> Get(const SymbolSet
   }
 }
 
+template <Endpoint::Type Type>
+ValueWithErrorCode<SymbolMap<SymbolEndpointPtr<Type>>> Get(const SymbolSet& symbols,
+                                                           const Endpoint::OptionsObject& options)
+{
+  const auto url = GetUrl<Type>(symbols, options);
+  auto vec = PerformCurl(url);
+  if (vec.second.Failure())
+  {
+    return {{}, std::move(vec.second)};
+  }
+
+  try
+  {
+    auto json = vec.first[url].first;
+    SymbolMap<SymbolEndpointPtr<Type>> map;
+    map.reserve(symbols.size());
+    for (const auto& symbol : symbols)
+    {
+      map.emplace(symbol, EndpointFactory<Type>(json[symbol.Get()][EndpointTypedefMap<Type>::kPath], symbol));
+    }
+
+    return {std::move(map), {}};
+  }
+  catch (const std::exception& e)
+  {
+    return {{}, ErrorCode("Get() failed", ErrorCode(e.what()))};
+  }
+}
+
 // endregion Curl
 }  // namespace detail
 
@@ -457,29 +486,32 @@ ValueWithErrorCode<SymbolMap<SymbolEndpointTuple<Types...>>> Get(const SymbolSet
 ErrorCode Init(Keys keys);
 
 // Symbol Endpoints
-template <Endpoint::Type... Types>
+template <Endpoint::Type... Types, std::enable_if_t<detail::IsPlural<Types...>::value, int> = 0>
 auto Get(const Symbol& symbol, const Endpoint::OptionsObject& options = {})
 {
-  auto resp = detail::Get<Types...>({symbol}, options);
-  if constexpr (detail::IsPlural<Types...>::value)
-  {
-    using return_type = ValueWithErrorCode<SymbolEndpointTuple<Types...>>;
-    return resp.second.Success() ? return_type{std::move(resp.first[symbol]), {}}
-                                 : return_type{{}, std::move(resp.second)};
-  }
-  else
-  {
-    using return_type = ValueWithErrorCode<SymbolEndpointPtr<std::get<0>(std::make_tuple(Types...))>>;
-    return resp.second.Success() ? return_type{std::move(std::get<0>(resp.first[symbol])), {}}
-                                 : return_type{{}, std::move(resp.second)};
-  }
+  auto [map, ec] = detail::Get<Types...>({symbol}, options);
+  return ValueWithErrorCode<typename decltype(map)::mapped_type>{std::move(map[symbol]), std::move(ec)};
+}
+
+template <Endpoint::Type Type>
+auto Get(const Symbol& symbol, const Endpoint::OptionsObject& options = {})
+{
+  auto [map, ec] = detail::Get<Type>({symbol}, options);
+  return ValueWithErrorCode<typename decltype(map)::mapped_type>{std::move(map[symbol]), std::move(ec)};
 }
 
 // Plural Symbol Endpoints and Symbols
-template <Endpoint::Type... Types>
+template <Endpoint::Type... Types, std::enable_if_t<detail::IsPlural<Types...>::value, int> = 0>
 auto Get(const SymbolSet& symbols, const Endpoint::OptionsObject& options = {})
 {
   return detail::Get<Types...>(symbols, options);
+}
+
+// Plural Symbol Endpoints and Symbols
+template <Endpoint::Type Type>
+auto Get(const SymbolSet& symbols, const Endpoint::OptionsObject& options = {})
+{
+  return detail::Get<Type>(symbols, options);
 }
 
 // Single Basic Endpoint
