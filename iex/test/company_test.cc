@@ -10,15 +10,15 @@
 
 #include "iex/iex.h"
 
-TEST(Company, GetWithTemplate)
-{
-  auto response =
-      iex::Get<iex::Endpoint::Type::COMPANY>(iex::Symbol("tsla"), iex::Endpoint::OptionsObject{{}, {}, iex::DataType::SANDBOX});
-  EXPECT_EQ(response.second, iex::ErrorCode());
-  ASSERT_TRUE(response.second.Success());
+static const iex::Endpoint::OptionsObject kOptions{{}, {}, iex::DataType::SANDBOX};
 
-  const auto a = response.first;
-  EXPECT_NE(a, nullptr);
+TEST(Company, Get)
+{
+  const auto response = iex::Get<iex::Endpoint::Type::COMPANY>(iex::Symbol("tsla"), kOptions);
+  ASSERT_EQ(response.second, iex::ErrorCode());
+
+  const auto& company = response.first;
+  EXPECT_NE(company, nullptr);
 }
 
 TEST(Company, AllFields)

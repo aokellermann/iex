@@ -10,15 +10,15 @@
 
 #include "iex/iex.h"
 
-TEST(Quote, GetWithTemplate)
-{
-  auto response =
-      iex::Get<iex::Endpoint::Type::QUOTE>(iex::Symbol("tsla"), iex::Endpoint::OptionsObject{{}, {}, iex::DataType::SANDBOX});
-  EXPECT_EQ(response.second, iex::ErrorCode());
-  ASSERT_TRUE(response.second.Success());
+static const iex::Endpoint::OptionsObject kOptions{{}, {}, iex::DataType::SANDBOX};
 
-  const auto a = response.first;
-  EXPECT_NE(a, nullptr);
+TEST(Quote, Get)
+{
+  auto response = iex::Get<iex::Endpoint::Type::QUOTE>(iex::Symbol("tsla"), kOptions);
+  ASSERT_EQ(response.second, iex::ErrorCode());
+
+  const auto& quote = response.first;
+  EXPECT_NE(quote, nullptr);
 }
 
 TEST(Quote, AllFields)

@@ -16,6 +16,8 @@
 #include "iex/detail/curl_wrapper.h"
 #include "iex/iex.h"
 
+static const iex::Endpoint::OptionsObject kOptions{{}, {}, iex::DataType::SANDBOX};
+
 #ifdef IEX_ENABLE_STRESS_TESTS
 TEST(Api, Batch)
 {
@@ -216,10 +218,9 @@ TEST(Curl, IexManualTimeoutStress)
 }
 #endif
 
-TEST(Api, Tuple)
+TEST(Api, SingleSymbolMultipleEndpoint)
 {
-  auto res = iex::Get<iex::Endpoint::QUOTE, iex::Endpoint::COMPANY>(
-      iex::Symbol("tsla"), iex::Endpoint::OptionsObject{{}, {}, iex::DataType::SANDBOX});
+  const auto res = iex::Get<iex::Endpoint::QUOTE, iex::Endpoint::COMPANY>(iex::Symbol("tsla"), kOptions);
   ASSERT_EQ(res.second, iex::ErrorCode());
 
   const auto& [quote, company] = res.first;
@@ -227,14 +228,13 @@ TEST(Api, Tuple)
   EXPECT_NE(company, nullptr);
 }
 
-TEST(Api, TupleMap)
+TEST(Api, MultipleSymbolMultipleEndpoint)
 {
-  auto res = iex::Get<iex::Endpoint::QUOTE, iex::Endpoint::COMPANY>(
-      iex::SymbolSet{iex::Symbol("tsla"), iex::Symbol("aapl")},
-      iex::Endpoint::OptionsObject{{}, {}, iex::DataType::SANDBOX});
+  const auto res = iex::Get<iex::Endpoint::QUOTE, iex::Endpoint::COMPANY>(
+      iex::SymbolSet{iex::Symbol("tsla"), iex::Symbol("aapl")}, kOptions);
   ASSERT_EQ(res.second, iex::ErrorCode());
 
-  for (const auto& [symbol, tuple] : res.first)
+  for (const auto& [_, tuple] : res.first)
   {
     const auto& [quote, company] = tuple;
     EXPECT_NE(quote, nullptr);

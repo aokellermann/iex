@@ -398,7 +398,7 @@ ValueWithErrorCode<BasicEndpointPtr<Type>> Get(const Endpoint::OptionsObject& op
   try
   {
     auto json = vec.first[url].first;
-    return {EndpointFactory<Type>(json[EndpointTypedefMap<Type>::kPath]), {}};
+    return {EndpointFactory<Type>(json), {}};
   }
   catch (const std::exception& e)
   {
