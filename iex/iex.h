@@ -338,9 +338,23 @@ struct AreSymbolEndpoints : std::bool_constant<std::conjunction_v<IsSymbolEndpoi
 
 using Url = curl::Url;
 
-Url GetUrl(const Endpoint::Type& type, const Endpoint::OptionsObject& options);
+Url GetUrl(const std::string& endpoint_name, const Endpoint::OptionsObject& options);
 
-Url GetUrl(const SymbolSet& symbols, const Endpoint::TypeSet& types, const Endpoint::OptionsObject& options);
+template <Endpoint::Type Type>
+Url GetUrl(const Endpoint::OptionsObject& options)
+{
+  return GetUrl(EndpointTypedefMap<Type>::kPath, options);
+}
+
+Url GetUrl(const std::unordered_set<std::string>& endpoint_names,
+           const SymbolSet& symbols,
+           const Endpoint::OptionsObject& options);
+
+template <Endpoint::Type... Types>
+Url GetUrl(const SymbolSet& symbols, const Endpoint::OptionsObject& options)
+{
+  return GetUrl({EndpointTypedefMap<Types>::kPath...}, symbols, options);
+}
 
 // endregion Url Helpers
 }  // namespace detail
@@ -386,7 +400,7 @@ ValueWithErrorCode<curl::GetMap> PerformCurl(const curl::Url& url);
 template <Endpoint::Type Type>
 ValueWithErrorCode<BasicEndpointPtr<Type>> Get(const Endpoint::OptionsObject& options)
 {
-  const auto url = GetUrl(Type, options);
+  const auto url = GetUrl<Type>(options);
   auto vec = PerformCurl(url);
   if (vec.second.Failure())
   {
@@ -408,7 +422,7 @@ template <Endpoint::Type... Types>
 ValueWithErrorCode<SymbolMap<SymbolEndpointTuple<Types...>>> Get(const SymbolSet& symbols,
                                                                  const Endpoint::OptionsObject& options)
 {
-  const auto url = GetUrl(symbols, Endpoint::TypeSet{Types...}, options);
+  const auto url = GetUrl<Types...>(symbols, options);
   auto vec = PerformCurl(url);
   if (vec.second.Failure())
   {

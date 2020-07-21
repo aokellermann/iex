@@ -9,13 +9,8 @@
 #include <mutex>
 #include <thread>
 
-#include "iex/api/company.h"
-#include "iex/api/quote.h"
-#include "iex/api/symbols.h"
-#include "iex/api/system_status.h"
 #include "iex/detail/curl_wrapper.h"
 #include "iex/detail/json_serializer.h"
-#include "iex/detail/singleton.h"
 #include "iex/detail/utils.h"
 
 namespace iex
@@ -50,10 +45,6 @@ Keys api_keys;
 const std::string kBaseUrlMap[]{"https://cloud.iexapis.com/", "https://sandbox.iexapis.com/"};
 
 const std::string kVersionUrlMap[]{"stable", /*"latest", */ "v1", "beta"};
-
-const std::vector<const Endpoint*> kEndpoints{&singleton::GetInstance<Symbols>(),
-                                              &singleton::GetInstance<SystemStatus>(), &singleton::GetInstance<Quote>(),
-                                              &singleton::GetInstance<Company>()};
 
 Key GetKey(const DataType type)
 {
@@ -99,10 +90,9 @@ void Symbol::Set(std::string sym) { impl_ = std::move(utils::ToUpper(sym)); }
 
 namespace detail
 {
-Url GetUrl(const Endpoint::Type& type, const Endpoint::OptionsObject& options)
+Url GetUrl(const std::string& endpoint_name, const Endpoint::OptionsObject& options)
 {
-  std::string url_string =
-      kBaseUrlMap[options.data_type] + kVersionUrlMap[options.version] + '/' + kEndpoints[type]->GetName();
+  std::string url_string = kBaseUrlMap[options.data_type] + kVersionUrlMap[options.version] + '/' + endpoint_name;
 
   Params params{{"token", GetKey(options.data_type)}};
   AppendParams(params, options.options);
@@ -110,7 +100,8 @@ Url GetUrl(const Endpoint::Type& type, const Endpoint::OptionsObject& options)
   return Url(std::move(url_string), std::move(params));
 }
 
-Url GetUrl(const SymbolSet& symbols, const Endpoint::TypeSet& types, const Endpoint::OptionsObject& options)
+Url GetUrl(const std::unordered_set<std::string>& endpoint_names, const SymbolSet& symbols,
+           const Endpoint::OptionsObject& options)
 {
   std::string url_string = kBaseUrlMap[options.data_type] + kVersionUrlMap[options.version] + "/stock/market/batch";
 
@@ -121,15 +112,9 @@ Url GetUrl(const SymbolSet& symbols, const Endpoint::TypeSet& types, const Endpo
     syms.insert(sym.Get());
   }
 
-  std::unordered_set<std::string> ts;
-  ts.reserve(types.size());
-  for (const auto& t : types)
-  {
-    ts.insert(kEndpoints[t]->GetName());
-  }
-
-  Params params = {
-      {"symbols", syms.begin(), syms.end()}, {"types", ts.begin(), ts.end()}, {"token", GetKey(options.data_type)}};
+  Params params = {{"symbols", syms.begin(), syms.end()},
+                   {"types", endpoint_names.begin(), endpoint_names.end()},
+                   {"token", GetKey(options.data_type)}};
   AppendParams(params, options.options);
 
   return Url(std::move(url_string), std::move(params));
