@@ -141,9 +141,14 @@ class Endpoint
   // region Types
 
   /**
-   * The name of an endpoint that the API accepts as a valid string.
+   * The path of an endpoint that the API accepts as a valid string.
    */
-  using Name = std::string;
+  using Path = const char* const;
+
+  /**
+   * Human-readable endpoint name.
+   */
+  using Name = const char* const;
 
   /**
    * Enum representing the endpoint.
@@ -252,33 +257,37 @@ struct EndpointTypedefMap;
 template <>
 struct EndpointTypedefMap<Endpoint::Type::SYMBOLS>
 {
-  using type = const Symbols;
-  static constexpr const char* const kPath = "ref-data/symbols";
-  using is_symbol_endpoint = std::false_type;
+  using type = Symbols;
+  static constexpr Endpoint::Path kPath = "ref-data/symbols";
+  static constexpr Endpoint::Name kName = "Stock Symbols";
+  using is_stock_endpoint = std::false_type;
 };
 
 template <>
 struct EndpointTypedefMap<Endpoint::Type::SYSTEM_STATUS>
 {
-  using type = const SystemStatus;
-  static constexpr const char* const kPath = "status";
-  using is_symbol_endpoint = std::false_type;
+  using type = SystemStatus;
+  static constexpr Endpoint::Path kPath = "status";
+  static constexpr Endpoint::Name kName = "System Status";
+  using is_stock_endpoint = std::false_type;
 };
 
 template <>
 struct EndpointTypedefMap<Endpoint::Type::QUOTE>
 {
-  using type = const Quote;
-  static constexpr const char* const kPath = "quote";
-  using is_symbol_endpoint = std::true_type;
+  using type = Quote;
+  static constexpr Endpoint::Path kPath = "quote";
+  static constexpr Endpoint::Name kName = "Quote";
+  using is_stock_endpoint = std::true_type;
 };
 
 template <>
 struct EndpointTypedefMap<Endpoint::Type::COMPANY>
 {
-  using type = const Company;
-  static constexpr const char* const kPath = "company";
-  using is_symbol_endpoint = std::true_type;
+  using type = Company;
+  static constexpr Endpoint::Path kPath = "company";
+  static constexpr Endpoint::Name kName = "Company";
+  using is_stock_endpoint = std::true_type;
 };
 
 template <Endpoint::Type T>
@@ -304,12 +313,12 @@ struct IsPlural : std::bool_constant<sizeof...(Types) >= 2>
 };
 
 template <Endpoint::Type Type>
-struct IsBasicEndpoint : std::negation<typename EndpointTypedefMap<Type>::is_symbol_endpoint>
+struct IsBasicEndpoint : std::negation<typename EndpointTypedefMap<Type>::is_stock_endpoint>
 {
 };
 
 template <Endpoint::Type Type>
-struct IsSymbolEndpoint : EndpointTypedefMap<Type>::is_symbol_endpoint
+struct IsSymbolEndpoint : EndpointTypedefMap<Type>::is_stock_endpoint
 {
 };
 
