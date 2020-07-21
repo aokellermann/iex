@@ -33,6 +33,9 @@ namespace iex
  */
 using Key = std::string;
 
+/**
+ * Collection of keys used for initialization.
+ */
 struct Keys
 {
   Key public_key;
@@ -48,6 +51,8 @@ struct Keys
 /**
  * This magic number is determined by conducting prolonged stress tests. The IEX documentation is not accurate
  * as of 6/28/20.
+ *
+ * Note: this number seems to be different if run on CI. Maybe this should be configurable.
  * @see IexManualTimeoutStress in api_test.cc
  * @see https://iexcloud.io/docs/api/#request-limits
  */
@@ -479,7 +484,13 @@ ValueWithErrorCode<SymbolMap<SymbolEndpointPtr<Type>>> Get(const SymbolSet& symb
  */
 ErrorCode Init(Keys keys);
 
-// Symbol Endpoints
+/**
+ * Fetches from IEX Cloud the given Endpoint::Types for the given symbol.
+ * @tparam Types A parameter pack of Endpoint::Types (must have positive length)
+ * @param symbol The symbol's data to fetch
+ * @param options Optional query options
+ * @return The fetched data
+ */
 template <Endpoint::Type... Types>
 auto Get(const Symbol& symbol, const Endpoint::OptionsObject& options = {})
 {
@@ -495,7 +506,13 @@ auto Get(const Symbol& symbol, const Endpoint::OptionsObject& options = {})
   }
 }
 
-// Plural Symbol Endpoints and Symbols
+/**
+ * Fetches from IEX Cloud the given Endpoint::Types for the given symbols.
+ * @tparam Types A parameter pack of Endpoint::Types (must have positive length)
+ * @param symbols A collection of symbols to fetch data for
+ * @param options Optional query options
+ * @return The fetched data
+ */
 template <Endpoint::Type... Types>
 auto Get(const SymbolSet& symbols, const Endpoint::OptionsObject& options = {})
 {
@@ -509,7 +526,12 @@ auto Get(const SymbolSet& symbols, const Endpoint::OptionsObject& options = {})
   }
 }
 
-// Single Basic Endpoint
+/**
+ * Fetches from IEX Cloud the given Endpoint::Type.
+ * @tparam Type The Endpoint::Type to fetch
+ * @param options Optional query options
+ * @return The fetched data
+ */
 template <Endpoint::Type Type>
 ValueWithErrorCode<BasicEndpointPtr<Type>> Get(const Endpoint::OptionsObject& options = {})
 {
