@@ -6,10 +6,8 @@
 
 #include "iex.h"
 
-#include <functional>
 #include <mutex>
 #include <thread>
-#include <unordered_map>
 
 #include "iex/api/company.h"
 #include "iex/api/quote.h"
