@@ -218,20 +218,23 @@ TEST(Curl, IexManualTimeoutStress)
 
 TEST(Api, Tuple)
 {
-  auto res = iex::Get<iex::Endpoint::QUOTE, iex::Endpoint::COMPANY>(iex::Symbol("tsla"), iex::RequestOptions{});
+  auto res = iex::Get<iex::Endpoint::QUOTE, iex::Endpoint::COMPANY>(
+      iex::Symbol("tsla"), iex::Endpoint::OptionsObject{{}, {}, iex::DataType::SANDBOX});
   ASSERT_EQ(res.second, iex::ErrorCode());
 
-  auto& [quote, company] = res.first;
+  const auto& [quote, company] = res.first;
   EXPECT_NE(quote, nullptr);
   EXPECT_NE(company, nullptr);
 }
 
 TEST(Api, TupleMap)
 {
-  auto res = iex::Get<iex::Endpoint::QUOTE, iex::Endpoint::COMPANY, iex::Endpoint::QUOTE>(iex::SymbolSet{iex::Symbol("tsla"), iex::Symbol("aapl")}, iex::RequestOptions{});
+  auto res = iex::Get<iex::Endpoint::QUOTE, iex::Endpoint::COMPANY>(
+      iex::SymbolSet{iex::Symbol("tsla"), iex::Symbol("aapl")},
+      iex::Endpoint::OptionsObject{{}, {}, iex::DataType::SANDBOX});
   ASSERT_EQ(res.second, iex::ErrorCode());
 
-  for (const auto& [symbol, tuple, quote2] : res.first)
+  for (const auto& [symbol, tuple] : res.first)
   {
     const auto& [quote, company] = tuple;
     EXPECT_NE(quote, nullptr);

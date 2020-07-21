@@ -129,14 +129,6 @@ enum DataType
 
 // region Endpoint
 
-class Endpoint;
-
-template <typename E = Endpoint, typename std::enable_if_t<std::is_base_of_v<Endpoint, E>, int> = 0>
-using EndpointPtr = std::shared_ptr<const E>;
-
-template <typename E = Endpoint, typename std::enable_if_t<std::is_base_of_v<Endpoint, E>, int> = 0>
-using BasicEndpointPtr = EndpointPtr<E>;
-
 /**
  * Base class for all endpoints.
  */
@@ -225,17 +217,18 @@ class Endpoint
 
   using Options = std::vector<OptionBase>;
 
+  struct OptionsObject
+  {
+    Endpoint::Options options;
+    Version version = Version::STABLE;
+    DataType data_type = DataType::AUTHENTIC;
+  };
+
   // endregion Types
 
   inline Endpoint(Name name, json::JsonStorage data) : data_(std::move(data)), name_(std::move(name)) {}
 
   virtual ~Endpoint() = default;
-
-  template <typename E>
-  static EndpointPtr<E> Factory(const json::Json& input_json)
-  {
-
-  }
 
   [[nodiscard]] inline std::string GetName() const noexcept { return name_; }
 
@@ -265,6 +258,7 @@ template <>
 struct EndpointTypedefMap<Endpoint::Type::SYMBOLS>
 {
   using type = const Symbols;
+  static constexpr const char* const kPath = "ref-data/symbols";
   using is_symbol_endpoint = std::false_type;
 };
 
@@ -272,6 +266,7 @@ template <>
 struct EndpointTypedefMap<Endpoint::Type::SYSTEM_STATUS>
 {
   using type = const SystemStatus;
+  static constexpr const char* const kPath = "status";
   using is_symbol_endpoint = std::false_type;
 };
 
@@ -279,6 +274,7 @@ template <>
 struct EndpointTypedefMap<Endpoint::Type::QUOTE>
 {
   using type = const Quote;
+  static constexpr const char* const kPath = "quote";
   using is_symbol_endpoint = std::true_type;
 };
 
@@ -286,14 +282,13 @@ template <>
 struct EndpointTypedefMap<Endpoint::Type::COMPANY>
 {
   using type = const Company;
+  static constexpr const char* const kPath = "company";
   using is_symbol_endpoint = std::true_type;
 };
 
 template <Endpoint::Type T>
 using EndpointTypename = typename EndpointTypedefMap<T>::type;
 
-// region Detail
-
 namespace detail
 {
 // region SFINAE
@@ -345,155 +340,106 @@ struct AreSymbolEndpoints : std::bool_constant<std::conjunction_v<IsSymbolEndpoi
 
 using Url = curl::Url;
 
-//Url GetUrl(const Endpoint::Type& type, const RequestOptions& options);
+Url GetUrl(const Endpoint::Type& type, const Endpoint::OptionsObject& options);
 
-//Url GetUrl(const SymbolSet& symbols, const Endpoint::TypeSet& types, const RequestOptions& options);
+Url GetUrl(const SymbolSet& symbols, const Endpoint::TypeSet& types, const Endpoint::OptionsObject& options);
 
 // endregion Url Helpers
 }  // namespace detail
 
-// endregion Detail
+template <Endpoint::Type Type>
+using EndpointPtr = std::shared_ptr<const EndpointTypename<Type>>;
+
+template <Endpoint::Type Type, typename std::enable_if_t<detail::IsBasicEndpoint<Type>::value, int> = 0>
+using BasicEndpointPtr = EndpointPtr<Type>;
+
+template <Endpoint::Type Type, typename std::enable_if_t<detail::IsSymbolEndpoint<Type>::value, int> = 0>
+using SymbolEndpointPtr = EndpointPtr<Type>;
+
+template <Endpoint::Type... Types>
+using EndpointTuple = std::enable_if_t<std::negation_v<detail::IsEmpty<Types...>>, std::tuple<EndpointPtr<Types>...>>;
+
+template <Endpoint::Type... Types>
+using BasicEndpointTuple =
+    std::enable_if_t<std::negation_v<detail::IsEmpty<Types...>>, std::tuple<BasicEndpointPtr<Types>...>>;
+
+template <Endpoint::Type... Types>
+using SymbolEndpointTuple =
+    std::enable_if_t<std::negation_v<detail::IsEmpty<Types...>>, std::tuple<SymbolEndpointPtr<Types>...>>;
+
+template <Endpoint::Type Type>
+auto EndpointFactory(const json::Json& input_json)
+{
+  return std::make_shared<typename BasicEndpointPtr<Type>::element_type>(json::JsonStorage{input_json});
+}
+
+template <Endpoint::Type Type>
+auto EndpointFactory(const json::Json& input_json, const Symbol& symbol)
+{
+  return std::make_shared<typename SymbolEndpointPtr<Type>::element_type>(json::JsonStorage{input_json}, symbol);
+}
+
+namespace detail
+{
+// region Curl
+
+ValueWithErrorCode<curl::GetMap> PerformCurl(const curl::Url& url);
+
+template <Endpoint::Type Type>
+ValueWithErrorCode<BasicEndpointPtr<Type>> Get(const Endpoint::OptionsObject& options)
+{
+  const auto url = GetUrl(Type, options);
+  auto vec = PerformCurl(url);
+  if (vec.second.Failure())
+  {
+    return {{}, std::move(vec.second)};
+  }
+
+  try
+  {
+    auto json = vec.first[url].first;
+    return {EndpointFactory<Type>(json[EndpointTypedefMap<Type>::kPath]), {}};
+  }
+  catch (const std::exception& e)
+  {
+    return {{}, ErrorCode("Get() failed", ErrorCode(e.what()))};
+  }
+}
+
+template <Endpoint::Type... Types>
+ValueWithErrorCode<SymbolMap<SymbolEndpointTuple<Types...>>> Get(const SymbolSet& symbols,
+                                                                 const Endpoint::OptionsObject& options)
+{
+  const auto url = GetUrl(symbols, Endpoint::TypeSet{Types...}, options);
+  auto vec = PerformCurl(url);
+  if (vec.second.Failure())
+  {
+    return {{}, std::move(vec.second)};
+  }
+
+  try
+  {
+    auto json = vec.first[url].first;
+    SymbolMap<SymbolEndpointTuple<Types...>> map;
+    map.reserve(symbols.size());
+    for (const auto& symbol : symbols)
+    {
+      map.emplace(symbol,
+                  std::make_tuple(EndpointFactory<Types>(json[symbol.Get()][EndpointTypedefMap<Types>::kPath])...));
+    }
+
+    return {std::move(map), {}};
+  }
+  catch (const std::exception& e)
+  {
+    return {{}, ErrorCode("Get() failed", ErrorCode(e.what()))};
+  }
+}
+
+// endregion Curl
+}  // namespace detail
 
 // endregion Endpoint
-
-// region Requests and Responses
-
-struct RequestOptions
-{
-  Endpoint::Options options;
-  Version version = Version::STABLE;
-  DataType data_type = DataType::AUTHENTIC;
-};
-
-using Request = Endpoint::Type;
-using Requests = Endpoint::TypeSet;
-
-struct SymbolRequest
-{
-  Symbol symbol;
-  Endpoint::Type type;
-};
-
-struct SymbolRequests
-{
-  SymbolSet symbols;
-  Requests requests;
-};
-
-struct AggregatedRequests
-{
-  Requests requests;
-  SymbolRequests symbol_requests;
-};
-
-class Responses
-{
- public:
-  template <Endpoint::Type T>
-  void Put(EndpointPtr<> ptr)
-  {
-    endpoint_map_[T] = std::move(ptr);
-  }
-
-  template <Endpoint::Type T>
-  [[nodiscard]] EndpointPtr<EndpointTypename<T>> Get() const
-  {
-    const auto iter = endpoint_map_.find(T);
-    return iter != endpoint_map_.end() ? std::dynamic_pointer_cast<EndpointTypename<T>>(iter->second) : nullptr;
-  }
-
- private:
-  Endpoint::TypeMap<EndpointPtr<>> endpoint_map_;
-};
-
-class SymbolResponses
-{
- public:
-  template <Endpoint::Type T>
-  void Put(EndpointPtr<> ptr, const Symbol& symbol)
-  {
-    security_map_[symbol].Put<T>(std::move(ptr));
-  }
-
-  [[nodiscard]] const Responses* Get(const Symbol& symbol) const
-  {
-    const auto iter = security_map_.find(symbol);
-    return iter != security_map_.end() ? &iter->second : nullptr;
-  }
-
- private:
-  SymbolMap<Responses> security_map_;
-};
-
-struct AggregatedResponses
-{
-  Responses responses;
-  SymbolResponses symbol_responses;
-};
-
-// endregion Requests and Responses
-
-// region Detail
-
-namespace detail
-{
-// region SFINAE
-
-template <Endpoint::Type... Types>
-struct IsEmpty : std::false_type
-{
-};
-
-template <>
-struct IsEmpty<> : std::true_type
-{
-};
-
-template <Endpoint::Type... Types>
-struct IsSingleton : std::bool_constant<sizeof...(Types) == 1>
-{
-};
-
-template <Endpoint::Type... Types>
-struct IsPlural
-    : std::bool_constant<std::conjunction_v<std::negation<IsEmpty<Types...>>, std::negation<IsSingleton<Types...>>>>
-{
-};
-
-template <Endpoint::Type Type>
-struct IsBasicEndpoint : std::negation<typename EndpointTypedefMap<Type>::is_symbol_endpoint>
-{
-};
-
-template <Endpoint::Type Type>
-struct IsSymbolEndpoint : EndpointTypedefMap<Type>::is_symbol_endpoint
-{
-};
-
-template <Endpoint::Type... Types>
-struct AreBasicEndpoints : std::bool_constant<std::conjunction_v<IsBasicEndpoint<Types>...>>
-{
-};
-
-template <Endpoint::Type... Types>
-struct AreSymbolEndpoints : std::bool_constant<std::conjunction_v<IsSymbolEndpoint<Types>...>>
-{
-};
-
-// endregion SFINAE
-
-// region Url Helpers
-
-using Url = curl::Url;
-
-Url GetUrl(const Endpoint::Type& type, const RequestOptions& options);
-
-Url GetUrl(const SymbolSet& symbols, const Endpoint::TypeSet& types, const RequestOptions& options);
-
-// endregion Url Helpers
-}  // namespace detail
-
-// endregion Detail
 
 // region Interface
 
@@ -504,69 +450,37 @@ Url GetUrl(const SymbolSet& symbols, const Endpoint::TypeSet& types, const Reque
  */
 ErrorCode Init(Keys keys);
 
-ValueWithErrorCode<AggregatedResponses> Get(const AggregatedRequests& requests, const RequestOptions& options = {});
-
+// Symbol Endpoints
 template <Endpoint::Type... Types>
-using EndpointTuple =
-    std::enable_if_t<std::negation_v<detail::IsEmpty<Types...>>, std::tuple<EndpointPtr<EndpointTypename<Types>>...>>;
-
-// Plural Basic Endpoints
-template <Endpoint::Type... Types>
-std::enable_if_t<std::conjunction_v<detail::IsPlural<Types...>, detail::AreBasicEndpoints<Types...>>,
-                 ValueWithErrorCode<EndpointTuple<Types...>>>
-Get(const RequestOptions& options = {})
+auto Get(const Symbol& symbol, const Endpoint::OptionsObject& options = {})
 {
-  auto resps = Get(AggregatedRequests{{Types}...}, options);
-  return {std::make_tuple(resps.first.responses.Get<Types>()...), std::move(resps.second)};
-}
-
-// Plural Symbol Endpoints
-template <Endpoint::Type... Types>
-std::enable_if_t<std::conjunction_v<detail::IsPlural<Types...>, detail::AreSymbolEndpoints<Types...>>,
-                 ValueWithErrorCode<EndpointTuple<Types...>>>
-Get(const Symbol& symbol, const RequestOptions& options = {})
-{
-  auto resp = Get(AggregatedRequests{{}, {symbol, {Types}...}}, options);
-  return {std::make_tuple(resp.first.symbol_responses.Get(symbol)->Get<Types>()...), std::move(resp.second)};
+  auto resp = detail::Get<Types...>({symbol}, options);
+  if constexpr (detail::IsPlural<Types...>::value)
+  {
+    using return_type = ValueWithErrorCode<SymbolEndpointTuple<Types...>>;
+    return resp.second.Success() ? return_type{std::move(resp.first[symbol]), {}}
+                                 : return_type{{}, std::move(resp.second)};
+  }
+  else
+  {
+    using return_type = ValueWithErrorCode<SymbolEndpointPtr<std::get<0>(std::make_tuple(Types...))>>;
+    return resp.second.Success() ? return_type{std::move(std::get<0>(resp.first[symbol])), {}}
+                                 : return_type{{}, std::move(resp.second)};
+  }
 }
 
 // Plural Symbol Endpoints and Symbols
 template <Endpoint::Type... Types>
-std::enable_if_t<std::conjunction_v<detail::IsPlural<Types...>, detail::AreSymbolEndpoints<Types...>>,
-                 ValueWithErrorCode<SymbolMap<EndpointTuple<Types...>>>>
-Get(const SymbolSet& symbols, const RequestOptions& options = {})
+auto Get(const SymbolSet& symbols, const Endpoint::OptionsObject& options = {})
 {
-  auto resp = Get(AggregatedRequests{{}, {symbols, Types...}}, options);
-
-  SymbolMap<EndpointTuple<Types...>> map;
-  if (resp.second.Failure())
-  {
-    map.reserve(symbols.size());
-    for (const auto& symbol : symbols)
-    {
-      map.emplace(symbol, std::make_tuple(resp.first.symbol_responses.Get(symbol)->Get<Types>()...));
-    }
-  }
-
-  return {std::move(map), std::move(resp.second)};
+  return detail::Get<Types...>(symbols, options);
 }
 
 // Single Basic Endpoint
 template <Endpoint::Type Type>
-std::enable_if_t<detail::IsBasicEndpoint<Type>::value, ValueWithErrorCode<EndpointPtr<EndpointTypename<Type>>>> Get(
-    const RequestOptions& options = {})
+ValueWithErrorCode<BasicEndpointPtr<Type>> Get(const Endpoint::OptionsObject& options = {})
 {
-  auto resps = Get(AggregatedRequests{{Type}}, options);
-  return {resps.first.responses.Get<Type>(), std::move(resps.second)};
-}
-
-// Single Symbol Endpoint
-template <Endpoint::Type Type>
-std::enable_if_t<detail::IsSymbolEndpoint<Type>::value, ValueWithErrorCode<EndpointPtr<EndpointTypename<Type>>>> Get(
-    const Symbol& symbol, const RequestOptions& options = {})
-{
-  auto resp = Get(AggregatedRequests{{}, {{symbol}, {Type}}}, options);
-  return {resp.first.symbol_responses.Get(symbol)->Get<Type>(), std::move(resp.second)};
+  return detail::Get<Type>(options);
 }
 
 // endregion Interface

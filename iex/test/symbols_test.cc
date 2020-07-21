@@ -16,28 +16,9 @@ const std::vector<const char*> kSymbols = {
     "aapl", "msft", "tsla", "intc", "amd", "bynd", "aig+", "brk.a", "ver-f", "mj", "qqq", "arkq", "robo",
 };
 
-TEST(Symbols, GetWithoutTemplate)
-{
-  iex::RequestOptions opts = iex::RequestOptions{{}, {}, iex::SANDBOX};
-  iex::Request req{iex::Endpoint::Type::SYMBOLS, opts};
-  auto response = iex::Get(req);
-  EXPECT_EQ(response.second, iex::ErrorCode());
-  ASSERT_TRUE(response.second.Success());
-
-  const auto a = response.first.Get<iex::Endpoint::Type::SYMBOLS>(opts);
-  ASSERT_NE(a, nullptr);
-
-  for (const auto& sym : kSymbols)
-  {
-    const auto member = a->Get(iex::Symbol(sym));
-    ASSERT_TRUE(member.has_value());
-    EXPECT_TRUE(member->Get<iex::Symbols::MemberType::NAME>().has_value());
-  }
-}
-
 TEST(Symbols, GetWithTemplate)
 {
-  iex::RequestOptions opts = iex::RequestOptions{{}, {}, iex::SANDBOX};
+  iex::Endpoint::OptionsObject opts = iex::Endpoint::OptionsObject{{}, {}, iex::SANDBOX};
   auto response = iex::Get<iex::Endpoint::Type::SYMBOLS>(opts);
   EXPECT_EQ(response.second, iex::ErrorCode());
   ASSERT_TRUE(response.second.Success());
