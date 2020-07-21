@@ -284,12 +284,7 @@ namespace detail
 // region SFINAE
 
 template <Endpoint::Type... Types>
-struct IsEmpty : std::false_type
-{
-};
-
-template <>
-struct IsEmpty<> : std::true_type
+struct IsEmpty : std::bool_constant<sizeof...(Types) == 0>
 {
 };
 
@@ -299,8 +294,7 @@ struct IsSingleton : std::bool_constant<sizeof...(Types) == 1>
 };
 
 template <Endpoint::Type... Types>
-struct IsPlural
-    : std::bool_constant<std::conjunction_v<std::negation<IsEmpty<Types...>>, std::negation<IsSingleton<Types...>>>>
+struct IsPlural : std::bool_constant<sizeof...(Types) >= 2>
 {
 };
 
@@ -486,32 +480,33 @@ ValueWithErrorCode<SymbolMap<SymbolEndpointPtr<Type>>> Get(const SymbolSet& symb
 ErrorCode Init(Keys keys);
 
 // Symbol Endpoints
-template <Endpoint::Type... Types, std::enable_if_t<detail::IsPlural<Types...>::value, int> = 0>
+template <Endpoint::Type... Types>
 auto Get(const Symbol& symbol, const Endpoint::OptionsObject& options = {})
 {
-  auto [map, ec] = detail::Get<Types...>({symbol}, options);
-  return ValueWithErrorCode<typename decltype(map)::mapped_type>{std::move(map[symbol]), std::move(ec)};
-}
-
-template <Endpoint::Type Type>
-auto Get(const Symbol& symbol, const Endpoint::OptionsObject& options = {})
-{
-  auto [map, ec] = detail::Get<Type>({symbol}, options);
-  return ValueWithErrorCode<typename decltype(map)::mapped_type>{std::move(map[symbol]), std::move(ec)};
+  if constexpr (detail::IsPlural<Types...>::value)
+  {
+    auto [map, ec] = detail::Get<Types...>({symbol}, options);
+    return ValueWithErrorCode<typename decltype(map)::mapped_type>{std::move(map[symbol]), std::move(ec)};
+  }
+  else
+  {
+    auto [map, ec] = detail::Get<std::get<0>(std::make_tuple(Types...))>({symbol}, options);
+    return ValueWithErrorCode<typename decltype(map)::mapped_type>{std::move(map[symbol]), std::move(ec)};
+  }
 }
 
 // Plural Symbol Endpoints and Symbols
-template <Endpoint::Type... Types, std::enable_if_t<detail::IsPlural<Types...>::value, int> = 0>
+template <Endpoint::Type... Types>
 auto Get(const SymbolSet& symbols, const Endpoint::OptionsObject& options = {})
 {
-  return detail::Get<Types...>(symbols, options);
-}
-
-// Plural Symbol Endpoints and Symbols
-template <Endpoint::Type Type>
-auto Get(const SymbolSet& symbols, const Endpoint::OptionsObject& options = {})
-{
-  return detail::Get<Type>(symbols, options);
+  if constexpr (detail::IsPlural<Types...>::value)
+  {
+    return detail::Get<Types...>(symbols, options);
+  }
+  else
+  {
+    return detail::Get<std::get<0>(std::make_tuple(Types...))>(symbols, options);
+  }
 }
 
 // Single Basic Endpoint
