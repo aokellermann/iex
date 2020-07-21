@@ -136,7 +136,7 @@ class Company : public SymbolEndpoint
 
  public:
   explicit Company(json::JsonStorage data = json::JsonStorage{}, Symbol sym = {})
-      : SymbolEndpoint(std::move(sym), "company", std::move(data))
+      : SymbolEndpoint(std::move(sym), std::move(data))
   {
   }
 

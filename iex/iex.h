@@ -224,25 +224,20 @@ class Endpoint
 
   // endregion Types
 
-  inline Endpoint(Name name, json::JsonStorage data) : data_(std::move(data)), name_(std::move(name)) {}
+  inline explicit Endpoint(json::JsonStorage data) : data_(std::move(data)) {}
 
   virtual ~Endpoint() = default;
 
-  [[nodiscard]] inline std::string GetName() const noexcept { return name_; }
-
  protected:
   const json::JsonStorage data_;
-
- private:
-  const Name name_;
 };
 
 struct SymbolEndpoint : Endpoint
 {
   SymbolEndpoint() = delete;
 
-  SymbolEndpoint(Symbol sym, Endpoint::Name name, json::JsonStorage data)
-      : Endpoint(std::move(name), std::move(data)), symbol(std::move(sym))
+  SymbolEndpoint(Symbol sym, json::JsonStorage data)
+      : Endpoint(std::move(data)), symbol(std::move(sym))
   {
   }
 

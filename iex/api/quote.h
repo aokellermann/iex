@@ -293,7 +293,7 @@ class Quote : public SymbolEndpoint
 
  public:
   explicit Quote(json::JsonStorage data = json::JsonStorage{}, Symbol sym = {})
-      : SymbolEndpoint(std::move(sym), "quote", std::move(data))
+      : SymbolEndpoint(std::move(sym), std::move(data))
   {
   }
 
