@@ -37,7 +37,7 @@ class JsonSerializable
    * Creates and returns a Json object representing this object. This function must be overridden.
    * @return Json
    */
-  virtual ValueWithErrorCode<Json> Serialize() = 0;
+  [[nodiscard]] virtual ValueWithErrorCode<Json> Serialize() const = 0;
 };
 
 /**
@@ -65,10 +65,15 @@ class JsonBidirectionalSerializable : protected JsonSerializable, protected Json
   ~JsonBidirectionalSerializable() override = default;
 };
 
-class JsonStorage : public JsonDeserializable
+class JsonStorage : public JsonBidirectionalSerializable
 {
  public:
   explicit JsonStorage(const json::Json& json = {}) { Deserialize(json); }
+
+  [[nodiscard]] ValueWithErrorCode<Json> Serialize() const final
+  {
+    return {json_, {}};
+  }
 
   ErrorCode Deserialize(const Json& input_json) final
   {
