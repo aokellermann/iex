@@ -80,11 +80,10 @@ class Quote : public StockEndpoint
  public:
   enum MemberType
   {
-    ENUM_FIRST,
     /**
      * Refers to the company name.
      */
-    COMPANY_NAME = ENUM_FIRST,
+    COMPANY_NAME,
     /**
      * Refers to the primary listing exchange for the symbol.
      */
@@ -281,7 +280,6 @@ class Quote : public StockEndpoint
      * For US stocks, indicates if the market is in normal market hours. Will be false during extended hours trading.
      */
     IS_US_MARKET_OPEN,
-    ENUM_LAST,
   };
 
  private:

@@ -53,11 +53,10 @@ class Company : public StockEndpoint
  public:
   enum MemberType
   {
-    ENUM_FIRST,
     /**
      * Name of the company
      */
-    COMPANY_NAME = ENUM_FIRST,
+    COMPANY_NAME,
     EXCHANGE,
     INDUSTRY,
     WEBSITE,
@@ -124,7 +123,6 @@ class Company : public StockEndpoint
      * Phone number of the company if available
      */
     PHONE,
-    ENUM_LAST,
   };
 
  private:
