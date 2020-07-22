@@ -17,7 +17,7 @@ namespace iex
 {
 namespace
 {
-// region Perform Curl
+// region Request Limiting
 
 /**
  * Arbitrary number of retries.
@@ -31,7 +31,7 @@ std::mutex api_call_mutex;
 
 std::chrono::high_resolution_clock::time_point last_call_ts;
 
-// endregion Perform Curl
+// endregion Request Limiting
 
 // region Url Helpers
 

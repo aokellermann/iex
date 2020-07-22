@@ -33,7 +33,7 @@ class SystemStatus : public Endpoint
     STATUS,
     VERSION,
     TIMESTAMP,
-    CURRENT_MONTH_API_CALLS,
+    CURRENT_MONTH_API_CALLS
   };
 
  private:

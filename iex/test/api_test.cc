@@ -16,20 +16,18 @@
 #include "iex/detail/curl_wrapper.h"
 #include "iex/iex.h"
 
+static const iex::Symbol kValidSymbol("tsla");
+static const iex::Symbol kValidSymbol2("aapl");
+static const iex::Symbol kInvalidSymbol("aaaaa");
+
 static const iex::Endpoint::OptionsObject kOptions{{}, {}, iex::DataType::SANDBOX};
 
 static const bool kCI = std::getenv("CI") != nullptr;
 
-void Sleep()
-{
-  if (kCI)
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-  else
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-}
+// Sleeping between API calls seems to help pass tests... CI requires longer sleeps.
+void Sleep() { std::this_thread::sleep_for(std::chrono::milliseconds(kCI ? 100 : 50)); }
 
 #ifdef IEX_ENABLE_STRESS_TESTS
-
 template <iex::Endpoint::Type Type>
 const auto kBasicGetFunc = [](const iex::Endpoint::OptionsObject& options,
                               std::mutex& mutex,
@@ -53,8 +51,8 @@ TEST(Api, Multithread)
   constexpr const iex::Endpoint::Type kEQuote = iex::Endpoint::Type::QUOTE;
   constexpr const iex::Endpoint::Type kECompany = iex::Endpoint::Type::COMPANY;
 
-  std::array<iex::Symbol, 5> symbols = {iex::Symbol("tsla"), iex::Symbol("aapl"), iex::Symbol("msft"),
-                                        iex::Symbol("amd"), iex::Symbol("intc")};
+  std::array<iex::Symbol, 5> symbols = {kValidSymbol, iex::Symbol("aapl"), iex::Symbol("msft"), iex::Symbol("amd"),
+                                        iex::Symbol("intc")};
   std::array<iex::Version, 3> versions = {iex::Version::STABLE, iex::Version::V1, iex::Version::BETA};
   std::array<iex::DataType, 2> data_types = {iex::DataType::AUTHENTIC, iex::DataType::SANDBOX};
 
@@ -149,10 +147,10 @@ TEST(Api, SingleSymbolSingleEndpoint)
 {
   Sleep();
 
-  const auto res = iex::Get<iex::Endpoint::QUOTE>(iex::Symbol("tsla"), kOptions);
-  ASSERT_EQ(res.second, iex::ErrorCode());
+  const auto valid_response = iex::Get<iex::Endpoint::QUOTE>(kValidSymbol, kOptions);
+  ASSERT_EQ(valid_response.second, iex::ErrorCode());
 
-  const auto& quote = res.first;
+  const auto& quote = valid_response.first;
   EXPECT_NE(quote, nullptr);
 }
 
@@ -160,10 +158,10 @@ TEST(Api, SingleSymbolSingleEndpointInvalidSymbol)
 {
   Sleep();
 
-  const auto res = iex::Get<iex::Endpoint::QUOTE>(iex::Symbol("aaaaa"), kOptions);
-  EXPECT_NE(res.second, iex::ErrorCode());
+  const auto invalid_response = iex::Get<iex::Endpoint::QUOTE>(kInvalidSymbol, kOptions);
+  EXPECT_NE(invalid_response.second, iex::ErrorCode());
 
-  const auto& quote = res.first;
+  const auto& quote = invalid_response.first;
   EXPECT_EQ(quote, nullptr);
 }
 
@@ -171,10 +169,10 @@ TEST(Api, SingleSymbolMultipleEndpoint)
 {
   Sleep();
 
-  const auto res = iex::Get<iex::Endpoint::QUOTE, iex::Endpoint::COMPANY>(iex::Symbol("tsla"), kOptions);
-  ASSERT_EQ(res.second, iex::ErrorCode());
+  const auto valid_response = iex::Get<iex::Endpoint::QUOTE, iex::Endpoint::COMPANY>(kValidSymbol, kOptions);
+  ASSERT_EQ(valid_response.second, iex::ErrorCode());
 
-  const auto& [quote, company] = res.first;
+  const auto& [quote, company] = valid_response.first;
   EXPECT_NE(quote, nullptr);
   EXPECT_NE(company, nullptr);
 }
@@ -183,10 +181,10 @@ TEST(Api, SingleSymbolMultipleEndpointInvalidSymbol)
 {
   Sleep();
 
-  const auto res = iex::Get<iex::Endpoint::QUOTE, iex::Endpoint::COMPANY>(iex::Symbol("aaaaa"), kOptions);
-  EXPECT_NE(res.second, iex::ErrorCode());
+  const auto invalid_response = iex::Get<iex::Endpoint::QUOTE, iex::Endpoint::COMPANY>(kInvalidSymbol, kOptions);
+  EXPECT_NE(invalid_response.second, iex::ErrorCode());
 
-  const auto& [quote, company] = res.first;
+  const auto& [quote, company] = invalid_response.first;
   EXPECT_EQ(quote, nullptr);
   EXPECT_EQ(company, nullptr);
 }
@@ -195,10 +193,10 @@ TEST(Api, MultipleSymbolSingleEndpoint)
 {
   Sleep();
 
-  const auto res = iex::Get<iex::Endpoint::QUOTE>(iex::SymbolSet{iex::Symbol("tsla"), iex::Symbol("aapl")}, kOptions);
-  ASSERT_EQ(res.second, iex::ErrorCode());
+  const auto valid_response = iex::Get<iex::Endpoint::QUOTE>(iex::SymbolSet{kValidSymbol, kValidSymbol2}, kOptions);
+  ASSERT_EQ(valid_response.second, iex::ErrorCode());
 
-  for (const auto& [_, quote] : res.first)
+  for (const auto& [_, quote] : valid_response.first)
   {
     EXPECT_NE(quote, nullptr);
   }
@@ -208,13 +206,14 @@ TEST(Api, MultipleSymbolSingleEndpointOneInvalidSymbol)
 {
   Sleep();
 
-  const auto success_symbol = iex::Symbol("tsla");
-  const auto failure_symbol = iex::Symbol("aaaaa");
+  const auto& success_symbol = kValidSymbol;
+  const auto& failure_symbol = kInvalidSymbol;
 
-  const auto res = iex::Get<iex::Endpoint::QUOTE>(iex::SymbolSet{success_symbol, failure_symbol}, kOptions);
-  EXPECT_NE(res.second, iex::ErrorCode());
+  const auto partially_invalid_response =
+      iex::Get<iex::Endpoint::QUOTE>(iex::SymbolSet{success_symbol, failure_symbol}, kOptions);
+  EXPECT_NE(partially_invalid_response.second, iex::ErrorCode());
 
-  for (const auto& [symbol, quote] : res.first)
+  for (const auto& [symbol, quote] : partially_invalid_response.first)
   {
     if (symbol == success_symbol)
       EXPECT_NE(quote, nullptr);
@@ -227,11 +226,11 @@ TEST(Api, MultipleSymbolMultipleEndpoint)
 {
   Sleep();
 
-  const auto res = iex::Get<iex::Endpoint::QUOTE, iex::Endpoint::COMPANY>(
-      iex::SymbolSet{iex::Symbol("tsla"), iex::Symbol("aapl")}, kOptions);
-  ASSERT_EQ(res.second, iex::ErrorCode());
+  const auto valid_response =
+      iex::Get<iex::Endpoint::QUOTE, iex::Endpoint::COMPANY>(iex::SymbolSet{kValidSymbol, kValidSymbol2}, kOptions);
+  ASSERT_EQ(valid_response.second, iex::ErrorCode());
 
-  for (const auto& [_, tuple] : res.first)
+  for (const auto& [_, tuple] : valid_response.first)
   {
     const auto& [quote, company] = tuple;
     EXPECT_NE(quote, nullptr);
@@ -243,14 +242,14 @@ TEST(Api, MultipleSymbolMultipleEndpointOneInvalidSymbol)
 {
   Sleep();
 
-  const auto success_symbol = iex::Symbol("tsla");
-  const auto failure_symbol = iex::Symbol("aaaaa");
+  const auto& success_symbol = kValidSymbol;
+  const auto& failure_symbol = kInvalidSymbol;
 
-  const auto res =
+  const auto partially_invalid_response =
       iex::Get<iex::Endpoint::QUOTE, iex::Endpoint::COMPANY>(iex::SymbolSet{success_symbol, failure_symbol}, kOptions);
-  EXPECT_NE(res.second, iex::ErrorCode());
+  EXPECT_NE(partially_invalid_response.second, iex::ErrorCode());
 
-  for (const auto& [symbol, tuple] : res.first)
+  for (const auto& [symbol, tuple] : partially_invalid_response.first)
   {
     const auto& [quote, company] = tuple;
     if (symbol == success_symbol)

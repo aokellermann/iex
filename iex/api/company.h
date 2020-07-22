@@ -122,7 +122,7 @@ class Company : public StockEndpoint
     /**
      * Phone number of the company if available
      */
-    PHONE,
+    PHONE
   };
 
  private:
