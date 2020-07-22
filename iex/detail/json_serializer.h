@@ -70,10 +70,7 @@ class JsonStorage : public JsonBidirectionalSerializable
  public:
   explicit JsonStorage(const json::Json& json = {}) { Deserialize(json); }
 
-  [[nodiscard]] ValueWithErrorCode<Json> Serialize() const final
-  {
-    return {json_, {}};
-  }
+  [[nodiscard]] ValueWithErrorCode<Json> Serialize() const final { return {json_, {}}; }
 
   ErrorCode Deserialize(const Json& input_json) final
   {
