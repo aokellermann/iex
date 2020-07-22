@@ -3,12 +3,13 @@ version: 2
 jobs:
   build:
     docker:
-      - image: aokellermann/iex:ci
-        auth:
-          username: aokellermann
-          password: $DOCKERHUB_PASSWORD
+      - image: archlinux
+
     steps:
       - checkout
+      - run:
+          name: Install required tools
+          command: pacman -Sy --noconfirm base base-devel cmake clang git curl nlohmann-json doxygen
       - run:
           name: Configure
           command: |
