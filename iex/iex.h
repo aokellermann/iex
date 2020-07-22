@@ -155,7 +155,15 @@ class Endpoint
    */
   enum Type
   {
-    ENUM_FIRST,
+    /**
+     * Class of basic endpoints. Cannot be queried.
+     */
+    BASIC = -100,
+    /**
+     * Class of stock endpoints. Cannot be queried.
+     */
+    STOCK,
+    ENUM_FIRST = 0,
     /**
      * @see https://iexcloud.io/docs/api/#symbols
      */
@@ -259,10 +267,22 @@ struct StockEndpoint : Endpoint
  * type: Corresponding class type.
  * kPath: Url endpoint path.
  * kName: Human-readable label.
- * is_stock_endpoint: Indication of whether the endpoint is a stock endpoint (useful for batch calls).
+ * kClassType: Class of endpoint type. For now there is only basic and stock.
  */
 template <Endpoint::Type>
 struct EndpointTypedefMap;
+
+template <>
+struct EndpointTypedefMap<Endpoint::Type::BASIC>
+{
+  using type = Endpoint;
+};
+
+template <>
+struct EndpointTypedefMap<Endpoint::Type::STOCK>
+{
+  using type = StockEndpoint;
+};
 
 template <>
 struct EndpointTypedefMap<Endpoint::Type::SYMBOLS>
@@ -270,7 +290,7 @@ struct EndpointTypedefMap<Endpoint::Type::SYMBOLS>
   using type = Symbols;
   static constexpr Endpoint::Path kPath = "ref-data/symbols";
   static constexpr Endpoint::Name kName = "Stock Symbols";
-  using is_stock_endpoint = std::false_type;
+  static constexpr Endpoint::Type kClassType = Endpoint::Type::BASIC;
 };
 
 template <>
@@ -279,7 +299,7 @@ struct EndpointTypedefMap<Endpoint::Type::SYSTEM_STATUS>
   using type = SystemStatus;
   static constexpr Endpoint::Path kPath = "status";
   static constexpr Endpoint::Name kName = "System Status";
-  using is_stock_endpoint = std::false_type;
+  static constexpr Endpoint::Type kClassType = Endpoint::Type::BASIC;
 };
 
 template <>
@@ -288,7 +308,7 @@ struct EndpointTypedefMap<Endpoint::Type::QUOTE>
   using type = Quote;
   static constexpr Endpoint::Path kPath = "quote";
   static constexpr Endpoint::Name kName = "Quote";
-  using is_stock_endpoint = std::true_type;
+  static constexpr Endpoint::Type kClassType = Endpoint::Type::STOCK;
 };
 
 template <>
@@ -297,7 +317,7 @@ struct EndpointTypedefMap<Endpoint::Type::COMPANY>
   using type = Company;
   static constexpr Endpoint::Path kPath = "company";
   static constexpr Endpoint::Name kName = "Company";
-  using is_stock_endpoint = std::true_type;
+  static constexpr Endpoint::Type kClassType = Endpoint::Type::STOCK;
 };
 
 /**
@@ -326,12 +346,12 @@ struct IsPlural : std::bool_constant<sizeof...(Types) >= 2>
 };
 
 template <Endpoint::Type Type>
-struct IsBasicEndpoint : std::negation<typename EndpointTypedefMap<Type>::is_stock_endpoint>
+struct IsBasicEndpoint : std::bool_constant<EndpointTypedefMap<Type>::kClassType == Endpoint::Type::BASIC>
 {
 };
 
 template <Endpoint::Type Type>
-struct IsStockEndpoint : EndpointTypedefMap<Type>::is_stock_endpoint
+struct IsStockEndpoint : std::bool_constant<EndpointTypedefMap<Type>::kClassType == Endpoint::Type::STOCK>
 {
 };
 
