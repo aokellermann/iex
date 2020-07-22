@@ -404,32 +404,32 @@ using EndpointPtr = std::shared_ptr<const EndpointTypename<Type>>;
 /**
  * Pointer type for non-Stock Endpoints.
  */
-template <Endpoint::Type Type, typename = std::enable_if_t<IsBasicEndpoint<Type>::value>>
-using BasicEndpointPtr = EndpointPtr<Type>;
+template <Endpoint::Type Type>
+using BasicEndpointPtr = std::enable_if_t<IsBasicEndpoint<Type>::value, EndpointPtr<Type>>;
 
 /**
  * Pointer type for Stock Endpoints.
  */
-template <Endpoint::Type Type, typename = std::enable_if_t<IsStockEndpoint<Type>::value>>
-using StockEndpointPtr = EndpointPtr<Type>;
+template <Endpoint::Type Type>
+using StockEndpointPtr = std::enable_if_t<IsStockEndpoint<Type>::value, EndpointPtr<Type>>;
 
-namespace detail
-{
-template <template <Endpoint::Type, typename...> typename PtrType, Endpoint::Type... Types>
+/**
+ * Tuple of Endpoints.
+ */
+template <template <Endpoint::Type> typename PtrType = EndpointPtr, Endpoint::Type... Types>
 using EndpointTuple = std::enable_if_t<std::negation_v<IsEmpty<Types...>>, std::tuple<PtrType<Types>...>>;
-}  // namespace detail
 
 /**
  * Tuple of non-Stock Endpoints.
  */
 template <Endpoint::Type... Types>
-using BasicEndpointTuple = detail::EndpointTuple<BasicEndpointPtr, Types...>;
+using BasicEndpointTuple = EndpointTuple<BasicEndpointPtr, Types...>;
 
 /**
  * Tuple of Stock Endpoints.
  */
 template <Endpoint::Type... Types>
-using StockEndpointTuple = detail::EndpointTuple<StockEndpointPtr, Types...>;
+using StockEndpointTuple = EndpointTuple<StockEndpointPtr, Types...>;
 
 /**
  * Factory method for Basic Endpoints.
