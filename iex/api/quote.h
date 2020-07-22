@@ -75,7 +75,7 @@ namespace iex
  *   "isUSMarketOpen": true
  * }
  */
-class Quote : public SymbolEndpoint
+class Quote : public StockEndpoint
 {
  public:
   enum MemberType
@@ -291,7 +291,7 @@ class Quote : public SymbolEndpoint
 
  public:
   explicit Quote(json::JsonStorage data = json::JsonStorage{}, Symbol sym = {})
-      : SymbolEndpoint(std::move(sym), "quote", Type::QUOTE, std::move(data))
+      : StockEndpoint(std::move(sym), std::move(data))
   {
   }
 

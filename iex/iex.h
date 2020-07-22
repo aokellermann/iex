@@ -6,14 +6,13 @@
 
 #pragma once
 
-#include <array>
 #include <chrono>
 #include <cstdint>
 #include <ios>
 #include <memory>
-#include <optional>
 #include <sstream>
 #include <string>
+#include <tuple>
 #include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
@@ -34,6 +33,9 @@ namespace iex
  */
 using Key = std::string;
 
+/**
+ * Collection of keys used for initialization.
+ */
 struct Keys
 {
   Key public_key;
@@ -49,6 +51,8 @@ struct Keys
 /**
  * This magic number is determined by conducting prolonged stress tests. The IEX documentation is not accurate
  * as of 6/28/20.
+ *
+ * Note: this number seems to be different if run on CI. Maybe this should be configurable.
  * @see IexManualTimeoutStress in api_test.cc
  * @see https://iexcloud.io/docs/api/#request-limits
  */
@@ -128,11 +132,6 @@ enum DataType
 
 // region Endpoint
 
-class Endpoint;
-
-template <typename E = Endpoint>
-using EndpointPtr = std::shared_ptr<const E>;
-
 /**
  * Base class for all endpoints.
  */
@@ -142,9 +141,14 @@ class Endpoint : public json::JsonBidirectionalSerializable
   // region Types
 
   /**
-   * The name of an endpoint that the API accepts as a valid string.
+   * The path of an endpoint that the API accepts as a valid string.
    */
-  using Name = std::string;
+  using Path = const char* const;
+
+  /**
+   * Human-readable endpoint name.
+   */
+  using Name = const char* const;
 
   /**
    * Enum representing the endpoint.
@@ -219,21 +223,22 @@ class Endpoint : public json::JsonBidirectionalSerializable
 
   using Options = std::vector<OptionBase>;
 
+  struct OptionsObject
+  {
+    Endpoint::Options options;
+    Version version = Version::STABLE;
+    DataType data_type = DataType::AUTHENTIC;
+  };
+
   // endregion Types
 
-  inline Endpoint(Name name, Type type, json::JsonStorage data)
+  inline explicit Endpoint(json::JsonStorage data)
       : data_(std::move(data)),
-        name_(std::move(name)),
-        type_(std::move(type)),
         timestamp_(std::chrono::duration_cast<Timestamp>(std::chrono::system_clock::now().time_since_epoch()))
   {
   }
 
   ~Endpoint() override = default;
-
-  [[nodiscard]] inline Name GetName() const noexcept { return name_; }
-
-  [[nodiscard]] inline Type GetType() const noexcept { return type_; }
 
   [[nodiscard]] inline Timestamp GetTimestamp() const noexcept { return timestamp_; }
 
@@ -249,144 +254,329 @@ class Endpoint : public json::JsonBidirectionalSerializable
   json::JsonStorage data_;
 
  private:
-  const Name name_;
   const Timestamp timestamp_;
-  const Type type_;
 };
 
-struct SymbolEndpoint : Endpoint
+/**
+ * Base class for all stock endpoints.
+ */
+struct StockEndpoint : Endpoint
 {
-  SymbolEndpoint() = delete;
+  StockEndpoint() = delete;
 
-  SymbolEndpoint(Symbol sym, Endpoint::Name name, Type type, json::JsonStorage data)
-      : Endpoint(std::move(name), std::move(type), std::move(data)), symbol(std::move(sym))
-  {
-  }
+  StockEndpoint(Symbol sym, json::JsonStorage data) : Endpoint(std::move(data)), symbol(std::move(sym)) {}
 
   const Symbol symbol;
 };
 
+/**
+ * For each specialization, the following is defined:
+ * type: Corresponding class type.
+ * kPath: Url endpoint path.
+ * kName: Human-readable label.
+ * is_stock_endpoint: Indication of whether the endpoint is a stock endpoint (useful for batch calls).
+ */
 template <Endpoint::Type>
 struct EndpointTypedefMap;
 
 template <>
 struct EndpointTypedefMap<Endpoint::Type::SYMBOLS>
 {
-  using type = const Symbols;
+  using type = Symbols;
+  static constexpr Endpoint::Path kPath = "ref-data/symbols";
+  static constexpr Endpoint::Name kName = "Stock Symbols";
+  using is_stock_endpoint = std::false_type;
 };
 
 template <>
 struct EndpointTypedefMap<Endpoint::Type::SYSTEM_STATUS>
 {
-  using type = const SystemStatus;
+  using type = SystemStatus;
+  static constexpr Endpoint::Path kPath = "status";
+  static constexpr Endpoint::Name kName = "System Status";
+  using is_stock_endpoint = std::false_type;
 };
 
 template <>
 struct EndpointTypedefMap<Endpoint::Type::QUOTE>
 {
-  using type = const Quote;
+  using type = Quote;
+  static constexpr Endpoint::Path kPath = "quote";
+  static constexpr Endpoint::Name kName = "Quote";
+  using is_stock_endpoint = std::true_type;
 };
 
 template <>
 struct EndpointTypedefMap<Endpoint::Type::COMPANY>
 {
-  using type = const Company;
+  using type = Company;
+  static constexpr Endpoint::Path kPath = "company";
+  static constexpr Endpoint::Name kName = "Company";
+  using is_stock_endpoint = std::true_type;
 };
 
+/**
+ * Helper for getting the corresponding class type for an Endpoint::Type.
+ */
 template <Endpoint::Type T>
 using EndpointTypename = typename EndpointTypedefMap<T>::type;
 
-template <typename T>
-using EndpointDataMap = std::unordered_map<Version, std::unordered_map<DataType, T>>;
+namespace detail
+{
+// region SFINAE
+
+template <Endpoint::Type... Types>
+struct IsEmpty : std::bool_constant<sizeof...(Types) == 0>
+{
+};
+
+template <Endpoint::Type... Types>
+struct IsSingleton : std::bool_constant<sizeof...(Types) == 1>
+{
+};
+
+template <Endpoint::Type... Types>
+struct IsPlural : std::bool_constant<sizeof...(Types) >= 2>
+{
+};
+
+template <Endpoint::Type Type>
+struct IsBasicEndpoint : std::negation<typename EndpointTypedefMap<Type>::is_stock_endpoint>
+{
+};
+
+template <Endpoint::Type Type>
+struct IsStockEndpoint : EndpointTypedefMap<Type>::is_stock_endpoint
+{
+};
+
+template <Endpoint::Type... Types>
+struct AreBasicEndpoints : std::bool_constant<std::conjunction_v<IsBasicEndpoint<Types>...>>
+{
+};
+
+template <Endpoint::Type... Types>
+struct AreStockEndpoints : std::bool_constant<std::conjunction_v<IsStockEndpoint<Types>...>>
+{
+};
+
+// endregion SFINAE
+
+// region Url Helpers
+
+using Url = curl::Url;
+
+Url GetUrl(const std::string& endpoint_name, const Endpoint::OptionsObject& options);
+
+template <Endpoint::Type Type>
+Url GetUrl(const Endpoint::OptionsObject& options)
+{
+  return GetUrl(EndpointTypedefMap<Type>::kPath, options);
+}
+
+Url GetUrl(const std::unordered_set<std::string>& endpoint_names,
+           const SymbolSet& symbols,
+           const Endpoint::OptionsObject& options);
+
+template <Endpoint::Type... Types>
+Url GetUrl(const SymbolSet& symbols, const Endpoint::OptionsObject& options)
+{
+  return GetUrl({EndpointTypedefMap<Types>::kPath...}, symbols, options);
+}
+
+// endregion Url Helpers
+}  // namespace detail
+
+/**
+ * Pointer type for Endpoints.
+ */
+template <Endpoint::Type Type>
+using EndpointPtr = std::shared_ptr<const EndpointTypename<Type>>;
+
+/**
+ * Pointer type for non-Stock Endpoints.
+ */
+template <Endpoint::Type Type, typename = std::enable_if_t<detail::IsBasicEndpoint<Type>::value>>
+using BasicEndpointPtr = EndpointPtr<Type>;
+
+/**
+ * Pointer type for Stock Endpoints.
+ */
+template <Endpoint::Type Type, typename = std::enable_if_t<detail::IsStockEndpoint<Type>::value>>
+using StockEndpointPtr = EndpointPtr<Type>;
+
+namespace detail
+{
+template <template <Endpoint::Type, typename...> typename PtrType, Endpoint::Type... Types>
+using EndpointTuple = std::enable_if_t<std::negation_v<detail::IsEmpty<Types...>>, std::tuple<PtrType<Types>...>>;
+}  // namespace detail
+
+/**
+ * Tuple of non-Stock Endpoints.
+ */
+template <Endpoint::Type... Types>
+using BasicEndpointTuple = detail::EndpointTuple<BasicEndpointPtr, Types...>;
+
+/**
+ * Tuple of Stock Endpoints.
+ */
+template <Endpoint::Type... Types>
+using StockEndpointTuple = detail::EndpointTuple<StockEndpointPtr, Types...>;
+
+/**
+ * Factory method for Basic Endpoints.
+ * @tparam Type a Basic Endpoint enumeration member.
+ * @param input_json input JSON data
+ * @return a BasicEndpointPtr
+ */
+template <Endpoint::Type Type>
+auto EndpointFactory(const json::Json& input_json)
+{
+  return std::make_shared<typename BasicEndpointPtr<Type>::element_type>(json::JsonStorage{input_json});
+}
+
+/**
+ * Factory method for Stock Endpoints.
+ * @tparam Type a Stock Endpoint enumeration member.
+ * @param input_json input JSON data
+ * @param symbol the stock's symbol
+ * @return a StockEndpointPtr
+ */
+template <Endpoint::Type Type>
+auto EndpointFactory(const json::Json& input_json, const Symbol& symbol)
+{
+  return std::make_shared<typename StockEndpointPtr<Type>::element_type>(json::JsonStorage{input_json}, symbol);
+}
+
+namespace detail
+{
+// region Curl
+
+ValueWithErrorCode<curl::GetMap> PerformCurl(const curl::Url& url);
+
+template <Endpoint::Type Type>
+ValueWithErrorCode<BasicEndpointPtr<Type>> Get(const Endpoint::OptionsObject& options)
+{
+  const auto url = GetUrl<Type>(options);
+  auto vec = PerformCurl(url);
+  if (vec.second.Failure())
+  {
+    return {{}, std::move(vec.second)};
+  }
+
+  try
+  {
+    auto json = vec.first[url].first;
+    return {EndpointFactory<Type>(json), {}};
+  }
+  catch (const std::exception& e)
+  {
+    return {{}, ErrorCode("Get() failed", ErrorCode(e.what()))};
+  }
+}
+
+template <Endpoint::Type... Types>
+auto Get(const SymbolSet& symbols, const Endpoint::OptionsObject& options)
+{
+  ErrorCode ec;
+
+  if constexpr (IsPlural<Types...>::value)
+  {
+    using return_type = ValueWithErrorCode<SymbolMap<StockEndpointTuple<Types...>>>;
+
+    const auto url = GetUrl<Types...>(symbols, options);
+    auto vec = PerformCurl(url);
+    if (vec.second.Failure())
+    {
+      return return_type{{}, std::move(vec.second)};
+    }
+
+    SymbolMap<StockEndpointTuple<Types...>> map;
+    try
+    {
+      const auto& json = vec.first[url].first;
+      map.reserve(symbols.size());
+      for (const auto& symbol : symbols)
+      {
+        const auto symbol_iter = json.find(symbol.Get());
+        if (symbol_iter != json.end())
+        {
+          const auto endpoint_iter =
+              map.emplace(symbol,
+                          std::make_tuple((
+                              symbol_iter->find(EndpointTypedefMap<Types>::kPath) != symbol_iter->end()
+                                  ? EndpointFactory<Types>(*symbol_iter->find(EndpointTypedefMap<Types>::kPath), symbol)
+                                  : nullptr)...))
+                  .first;
+          std::apply(
+              [&ec](auto&&... args) {
+                ((ec = args == nullptr ? ErrorCode("Get() failed", ErrorCode("no symbol in json")) : ec), ...);
+              },
+              endpoint_iter->second);
+        }
+        else
+        {
+          ec = ErrorCode("Get() failed", ErrorCode("no symbol in json"));
+        }
+      }
+    }
+    catch (const std::exception& e)
+    {
+      ec = ErrorCode("Get() failed", ErrorCode(e.what()));
+    }
+
+    return return_type{std::move(map), std::move(ec)};
+  }
+  else
+  {
+    constexpr Endpoint::Type kType = std::get<0>(std::make_tuple(Types...));
+    using return_type = ValueWithErrorCode<SymbolMap<StockEndpointPtr<kType>>>;
+
+    const auto url = GetUrl<kType>(symbols, options);
+    auto vec = PerformCurl(url);
+    if (vec.second.Failure())
+    {
+      return return_type{{}, std::move(vec.second)};
+    }
+
+    SymbolMap<StockEndpointPtr<kType>> map;
+    try
+    {
+      const auto& json = vec.first[url].first;
+      map.reserve(symbols.size());
+      for (const auto& symbol : symbols)
+      {
+        const auto symbol_iter = json.find(symbol.Get());
+        if (symbol_iter != json.end())
+        {
+          const auto endpoint_iter = symbol_iter->find(EndpointTypedefMap<kType>::kPath);
+          if (endpoint_iter != symbol_iter->end())
+          {
+            map.emplace(symbol, EndpointFactory<kType>(*endpoint_iter, symbol));
+          }
+          else
+          {
+            ec = ErrorCode("Get() failed", ErrorCode("no endpoint in json"));
+          }
+        }
+        else
+        {
+          ec = ErrorCode("Get() failed", ErrorCode("no symbol in json"));
+        }
+      }
+    }
+    catch (const std::exception& e)
+    {
+      ec = ErrorCode("Get() failed", ErrorCode(e.what()));
+    }
+
+    return return_type{std::move(map), std::move(ec)};
+  }
+}
+// endregion Curl
+}  // namespace detail
 
 // endregion Endpoint
-
-// region Requests and Responses
-
-struct RequestOptions
-{
-  Endpoint::Options options;
-  Version version = Version::STABLE;
-  DataType data_type = DataType::AUTHENTIC;
-};
-
-struct Request
-{
-  Endpoint::Type type;
-  RequestOptions options;
-};
-using Requests = Endpoint::TypeMap<RequestOptions>;
-
-struct SymbolRequest : Request
-{
-  SymbolRequest(Symbol sym, Request request) : Request(std::move(request)), symbol(std::move(sym)) {}
-
-  Symbol symbol;
-};
-using SymbolRequests = SymbolMap<Requests>;
-
-struct AggregatedRequests
-{
-  Requests requests;
-  SymbolRequests symbol_requests;
-};
-
-class Responses
-{
- public:
-  template <Endpoint::Type T>
-  void Put(EndpointPtr<> ptr, const RequestOptions& options)
-  {
-    endpoint_map_[options.version][options.data_type].emplace(T, std::move(ptr));
-  }
-
-  template <Endpoint::Type T>
-  [[nodiscard]] EndpointPtr<EndpointTypename<T>> Get(const RequestOptions& options = {}) const
-  {
-    const auto viter = endpoint_map_.find(options.version);
-    if (viter == endpoint_map_.end())
-    {
-      return nullptr;
-    }
-    const auto diter = viter->second.find(options.data_type);
-    if (diter == viter->second.end())
-    {
-      return nullptr;
-    }
-    const auto iter = diter->second.find(T);
-    return iter != diter->second.end() ? std::dynamic_pointer_cast<EndpointTypename<T>>(iter->second) : nullptr;
-  }
-
- private:
-  EndpointDataMap<Endpoint::TypeMap<EndpointPtr<>>> endpoint_map_;
-};
-
-class SymbolResponses
-{
- public:
-  template <Endpoint::Type T>
-  void Put(EndpointPtr<> ptr, const RequestOptions& options, const Symbol& symbol)
-  {
-    security_map_[symbol].Put<T>(std::move(ptr), options);
-  }
-
-  [[nodiscard]] const Responses* Get(const Symbol& symbol) const
-  {
-    const auto iter = security_map_.find(symbol);
-    return iter != security_map_.end() ? &iter->second : nullptr;
-  }
-
- private:
-  SymbolMap<Responses> security_map_;
-};
-
-struct AggregatedResponses
-{
-  Responses responses;
-  SymbolResponses symbol_responses;
-};
-
-// endregion Requests and Responses
 
 // region Interface
 
@@ -397,63 +587,48 @@ struct AggregatedResponses
  */
 ErrorCode Init(Keys keys);
 
-ValueWithErrorCode<AggregatedResponses> Get(const AggregatedRequests& requests);
-
-inline ValueWithErrorCode<Responses> Get(const Requests& requests)
+/**
+ * Fetches from IEX Cloud the given Endpoint::Types for the given symbol.
+ * @tparam Types A parameter pack of Endpoint::Types (must have positive length)
+ * @param symbol The symbol's data to fetch
+ * @param options Optional query options
+ * @return The fetched data along with an ErrorCode. The ErrorCode will indicate failure if at least one Endpoint
+ * failed. Successful endpoints will be non-nullptr if they succeeded even if one failed.
+ */
+template <Endpoint::Type... Types>
+auto Get(const Symbol& symbol, const Endpoint::OptionsObject& options = {})
 {
-  const AggregatedRequests aggregated_requests{requests, {}};
-  auto response = Get(aggregated_requests);
-  if (response.second.Failure())
-  {
-    return {{}, {"Get(Requests) failed", std::move(response.second)}};
-  }
-  return {std::move(response.first.responses), {}};
+  auto [map, ec] = detail::Get<Types...>({symbol}, options);
+  auto node = map.extract(symbol);
+  using return_value_type = typename decltype(node)::mapped_type;
+  return ValueWithErrorCode<return_value_type>{
+      !node.empty() ? return_value_type{std::move(node.mapped())} : return_value_type{}, std::move(ec)};
 }
 
-inline ValueWithErrorCode<SymbolResponses> Get(const SymbolRequests& requests)
+/**
+ * Fetches from IEX Cloud the given Endpoint::Types for the given symbols.
+ * @tparam Types A parameter pack of Endpoint::Types (must have positive length)
+ * @param symbols A collection of symbols to fetch data for
+ * @param options Optional query options
+ * @return The fetched data along with an ErrorCode. The ErrorCode will indicate failure if at least one Endpoint
+ * failed. Successful endpoints will be non-nullptr if they succeeded even if one failed.
+ */
+template <Endpoint::Type... Types>
+auto Get(const SymbolSet& symbols, const Endpoint::OptionsObject& options = {})
 {
-  const AggregatedRequests aggregated_requests{{}, requests};
-  auto response = Get(aggregated_requests);
-  if (response.second.Failure())
-  {
-    return {{}, {"Get(SymbolRequests) failed", std::move(response.second)}};
-  }
-  return {std::move(response.first.symbol_responses), {}};
+  return detail::Get<Types...>(symbols, options);
 }
 
-inline ValueWithErrorCode<Responses> Get(const Request& request)
+/**
+ * Fetches from IEX Cloud the given Endpoint::Type.
+ * @tparam Type The Endpoint::Type to fetch
+ * @param options Optional query options
+ * @return The fetched data along with an ErrorCode.
+ */
+template <Endpoint::Type Type>
+auto Get(const Endpoint::OptionsObject& options = {})
 {
-  return Get(Requests{{request.type, request.options}});
-}
-
-inline ValueWithErrorCode<SymbolResponses> Get(const SymbolRequest& request)
-{
-  return Get(SymbolRequests{{request.symbol, {{request.type, request.options}}}});
-}
-
-template <Endpoint::Type T>
-inline ValueWithErrorCode<EndpointPtr<EndpointTypename<T>>> Get(const RequestOptions& request_options = {})
-{
-  static_assert(T == Endpoint::Type::SYMBOLS || T == Endpoint::Type::SYSTEM_STATUS, "T is not of valid type");
-
-  const auto response = Get(Request{T, request_options});
-  return {response.first.Get<T>(request_options), std::move(response.second)};
-}
-
-template <Endpoint::Type T>
-inline ValueWithErrorCode<EndpointPtr<EndpointTypename<T>>> Get(const Symbol& symbol,
-                                                                const RequestOptions& request_options = {})
-{
-  static_assert(T == Endpoint::Type::QUOTE || T == Endpoint::Type::COMPANY, "T is not of valid type");
-
-  const auto response = Get(SymbolRequest{symbol, {T, request_options}});
-  const auto* const ptr = response.first.Get(symbol);
-  if (ptr == nullptr)
-  {
-    return {{}, ErrorCode{"SymbolResponses::Get return nullptr"}};
-  }
-
-  return {ptr->Get<T>(request_options), std::move(response.second)};
+  return detail::Get<Type>(options);
 }
 
 // endregion Interface

@@ -48,7 +48,7 @@ namespace iex
  *     "phone": "1.408.996.1010"
  *   }
  */
-class Company : public SymbolEndpoint
+class Company : public StockEndpoint
 {
  public:
   enum MemberType
@@ -134,7 +134,7 @@ class Company : public SymbolEndpoint
 
  public:
   explicit Company(json::JsonStorage data = json::JsonStorage{}, Symbol sym = {})
-      : SymbolEndpoint(std::move(sym), "company", Type::COMPANY, std::move(data))
+      : StockEndpoint(std::move(sym), std::move(data))
   {
   }
 
