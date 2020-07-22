@@ -8,33 +8,17 @@
 
 #include "iex/iex.h"
 
-TEST(SystemStatus, GetWithoutTemplate)
+TEST(SystemStatus, Get)
 {
-  iex::Request req{iex::Endpoint::Type::SYSTEM_STATUS};
-  auto response = iex::Get(req);
-  EXPECT_EQ(response.second, iex::ErrorCode());
-  ASSERT_TRUE(response.second.Success());
+  const auto response = iex::Get<iex::Endpoint::Type::SYSTEM_STATUS>();
+  ASSERT_EQ(response.second, iex::ErrorCode());
 
-  const auto a = response.first.Get<iex::Endpoint::Type::SYSTEM_STATUS>();
-  ASSERT_NE(a, nullptr);
+  const auto& status = response.first;
+  ASSERT_NE(status, nullptr);
 
-  EXPECT_EQ(a->Get<iex::SystemStatus::MemberType::STATUS>().value(), "up") << "iex must be up in order to run testing";
-  EXPECT_FALSE(a->Get<iex::SystemStatus::MemberType::VERSION>().value().empty());
-  EXPECT_GT(a->Get<iex::SystemStatus::MemberType::TIMESTAMP>().value().count(), 0);
-  EXPECT_GT(a->Get<iex::SystemStatus::MemberType::CURRENT_MONTH_API_CALLS>().value(), 0);
-}
-
-TEST(SystemStatus, GetWithTemplate)
-{
-  auto response = iex::Get<iex::Endpoint::Type::SYSTEM_STATUS>();
-  EXPECT_EQ(response.second, iex::ErrorCode());
-  ASSERT_TRUE(response.second.Success());
-
-  const auto a = response.first;
-  ASSERT_NE(a, nullptr);
-
-  EXPECT_EQ(a->Get<iex::SystemStatus::MemberType::STATUS>().value(), "up") << "iex must be up in order to run testing";
-  EXPECT_FALSE(a->Get<iex::SystemStatus::MemberType::VERSION>().value().empty());
-  EXPECT_GT(a->Get<iex::SystemStatus::MemberType::TIMESTAMP>().value().count(), 0);
-  EXPECT_GT(a->Get<iex::SystemStatus::MemberType::CURRENT_MONTH_API_CALLS>().value(), 0);
+  EXPECT_EQ(status->Get<iex::SystemStatus::MemberType::STATUS>().value(), "up")
+      << "iex must be up in order to run testing";
+  EXPECT_FALSE(status->Get<iex::SystemStatus::MemberType::VERSION>().value().empty());
+  EXPECT_GT(status->Get<iex::SystemStatus::MemberType::TIMESTAMP>().value().count(), 0);
+  EXPECT_GT(status->Get<iex::SystemStatus::MemberType::CURRENT_MONTH_API_CALLS>().value(), 0);
 }

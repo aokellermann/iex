@@ -8,31 +8,15 @@
 
 #include "iex/iex.h"
 
-TEST(Company, GetWithoutTemplate)
+static const iex::Endpoint::OptionsObject kOptions{{}, {}, iex::DataType::SANDBOX};
+
+TEST(Company, Get)
 {
-  iex::Symbol sym("tsla");
-  const auto opts = iex::RequestOptions{iex::Endpoint::Options{}, {}, iex::DataType::SANDBOX};
-  iex::SymbolRequest req(sym, iex::Request{iex::Endpoint::Type::COMPANY, opts});
-  auto response = iex::Get(req);
-  EXPECT_EQ(response.second, iex::ErrorCode());
-  ASSERT_TRUE(response.second.Success());
+  const auto response = iex::Get<iex::Endpoint::Type::COMPANY>(iex::Symbol("tsla"), kOptions);
+  ASSERT_EQ(response.second, iex::ErrorCode());
 
-  const auto* const sym_ptr = response.first.Get(sym);
-  ASSERT_NE(sym_ptr, nullptr);
-
-  const auto end_ptr = sym_ptr->Get<iex::Endpoint::Type::COMPANY>(opts);
-  EXPECT_NE(end_ptr, nullptr);
-}
-
-TEST(Company, GetWithTemplate)
-{
-  auto response =
-      iex::Get<iex::Endpoint::Type::COMPANY>(iex::Symbol("tsla"), iex::RequestOptions{{}, {}, iex::DataType::SANDBOX});
-  EXPECT_EQ(response.second, iex::ErrorCode());
-  ASSERT_TRUE(response.second.Success());
-
-  const auto a = response.first;
-  EXPECT_NE(a, nullptr);
+  const auto& company = response.first;
+  EXPECT_NE(company, nullptr);
 }
 
 TEST(Company, AllFields)
