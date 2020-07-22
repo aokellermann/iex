@@ -422,6 +422,8 @@ ValueWithErrorCode<BasicEndpointPtr<Type>> Get(const Endpoint::OptionsObject& op
 template <Endpoint::Type... Types>
 auto Get(const SymbolSet& symbols, const Endpoint::OptionsObject& options)
 {
+  ErrorCode ec;
+
   if constexpr (IsPlural<Types...>::value)
   {
     using return_type = ValueWithErrorCode<SymbolMap<SymbolEndpointTuple<Types...>>>;
@@ -433,24 +435,41 @@ auto Get(const SymbolSet& symbols, const Endpoint::OptionsObject& options)
       return return_type{{}, std::move(vec.second)};
     }
 
+    SymbolMap<SymbolEndpointTuple<Types...>> map;
     try
     {
-      auto json = vec.first[url].first;
-      SymbolMap<SymbolEndpointTuple<Types...>> map;
+      const auto& json = vec.first[url].first;
       map.reserve(symbols.size());
       for (const auto& symbol : symbols)
       {
-        map.emplace(
-            symbol,
-            std::make_tuple(EndpointFactory<Types>(json[symbol.Get()][EndpointTypedefMap<Types>::kPath], symbol)...));
+        const auto symbol_iter = json.find(symbol.Get());
+        if (symbol_iter != json.end())
+        {
+          const auto endpoint_iter =
+              map.emplace(symbol,
+                          std::make_tuple((
+                              symbol_iter->find(EndpointTypedefMap<Types>::kPath) != symbol_iter->end()
+                                  ? EndpointFactory<Types>(*symbol_iter->find(EndpointTypedefMap<Types>::kPath), symbol)
+                                  : nullptr)...))
+                  .first;
+          std::apply(
+              [&ec](auto&&... args) {
+                ((ec = args == nullptr ? ErrorCode("Get() failed", ErrorCode("no symbol in json")) : ec), ...);
+              },
+              endpoint_iter->second);
+        }
+        else
+        {
+          ec = ErrorCode("Get() failed", ErrorCode("no symbol in json"));
+        }
       }
-
-      return return_type{std::move(map), {}};
     }
     catch (const std::exception& e)
     {
-      return return_type{{}, ErrorCode("Get() failed", ErrorCode(e.what()))};
+      ec = ErrorCode("Get() failed", ErrorCode(e.what()));
     }
+
+    return return_type{std::move(map), std::move(ec)};
   }
   else
   {
@@ -464,22 +483,38 @@ auto Get(const SymbolSet& symbols, const Endpoint::OptionsObject& options)
       return return_type{{}, std::move(vec.second)};
     }
 
+    SymbolMap<SymbolEndpointPtr<kType>> map;
     try
     {
-      auto json = vec.first[url].first;
-      SymbolMap<SymbolEndpointPtr<kType>> map;
+      const auto& json = vec.first[url].first;
       map.reserve(symbols.size());
       for (const auto& symbol : symbols)
       {
-        map.emplace(symbol, EndpointFactory<kType>(json[symbol.Get()][EndpointTypedefMap<kType>::kPath], symbol));
+        const auto symbol_iter = json.find(symbol.Get());
+        if (symbol_iter != json.end())
+        {
+          const auto endpoint_iter = symbol_iter->find(EndpointTypedefMap<kType>::kPath);
+          if (endpoint_iter != symbol_iter->end())
+          {
+            map.emplace(symbol, EndpointFactory<kType>(*endpoint_iter, symbol));
+          }
+          else
+          {
+            ec = ErrorCode("Get() failed", ErrorCode("no endpoint in json"));
+          }
+        }
+        else
+        {
+          ec = ErrorCode("Get() failed", ErrorCode("no symbol in json"));
+        }
       }
-
-      return return_type{std::move(map), {}};
     }
     catch (const std::exception& e)
     {
-      return return_type{{}, ErrorCode("Get() failed", ErrorCode(e.what()))};
+      ec = ErrorCode("Get() failed", ErrorCode(e.what()));
     }
+
+    return return_type{std::move(map), std::move(ec)};
   }
 }
 // endregion Curl
@@ -507,7 +542,10 @@ template <Endpoint::Type... Types>
 auto Get(const Symbol& symbol, const Endpoint::OptionsObject& options = {})
 {
   auto [map, ec] = detail::Get<Types...>({symbol}, options);
-  return ValueWithErrorCode<typename decltype(map)::mapped_type>{std::move(map[symbol]), std::move(ec)};
+  auto node = map.extract(symbol);
+  using return_value_type = typename decltype(node)::mapped_type;
+  return ValueWithErrorCode<return_value_type>{
+      !node.empty() ? return_value_type{std::move(node.mapped())} : return_value_type{}, std::move(ec)};
 }
 
 /**

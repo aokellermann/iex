@@ -20,9 +20,12 @@ static const iex::Endpoint::OptionsObject kOptions{{}, {}, iex::DataType::SANDBO
 
 static const bool kCI = std::getenv("CI") != nullptr;
 
-void SleepIfCI()
+void Sleep()
 {
-  if (kCI) std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  if (kCI)
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  else
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
 }
 
 #ifdef IEX_ENABLE_STRESS_TESTS
@@ -144,7 +147,7 @@ TEST(Api, IexManualTimeoutStress)
 
 TEST(Api, SingleSymbolSingleEndpoint)
 {
-  SleepIfCI();
+  Sleep();
 
   const auto res = iex::Get<iex::Endpoint::QUOTE>(iex::Symbol("tsla"), kOptions);
   ASSERT_EQ(res.second, iex::ErrorCode());
@@ -153,9 +156,20 @@ TEST(Api, SingleSymbolSingleEndpoint)
   EXPECT_NE(quote, nullptr);
 }
 
+TEST(Api, SingleSymbolSingleEndpointInvalidSymbol)
+{
+  Sleep();
+
+  const auto res = iex::Get<iex::Endpoint::QUOTE>(iex::Symbol("aaaaa"), kOptions);
+  EXPECT_NE(res.second, iex::ErrorCode());
+
+  const auto& quote = res.first;
+  EXPECT_EQ(quote, nullptr);
+}
+
 TEST(Api, SingleSymbolMultipleEndpoint)
 {
-  SleepIfCI();
+  Sleep();
 
   const auto res = iex::Get<iex::Endpoint::QUOTE, iex::Endpoint::COMPANY>(iex::Symbol("tsla"), kOptions);
   ASSERT_EQ(res.second, iex::ErrorCode());
@@ -165,9 +179,21 @@ TEST(Api, SingleSymbolMultipleEndpoint)
   EXPECT_NE(company, nullptr);
 }
 
+TEST(Api, SingleSymbolMultipleEndpointInvalidSymbol)
+{
+  Sleep();
+
+  const auto res = iex::Get<iex::Endpoint::QUOTE, iex::Endpoint::COMPANY>(iex::Symbol("aaaaa"), kOptions);
+  EXPECT_NE(res.second, iex::ErrorCode());
+
+  const auto& [quote, company] = res.first;
+  EXPECT_EQ(quote, nullptr);
+  EXPECT_EQ(company, nullptr);
+}
+
 TEST(Api, MultipleSymbolSingleEndpoint)
 {
-  SleepIfCI();
+  Sleep();
 
   const auto res = iex::Get<iex::Endpoint::QUOTE>(iex::SymbolSet{iex::Symbol("tsla"), iex::Symbol("aapl")}, kOptions);
   ASSERT_EQ(res.second, iex::ErrorCode());
@@ -178,9 +204,28 @@ TEST(Api, MultipleSymbolSingleEndpoint)
   }
 }
 
+TEST(Api, MultipleSymbolSingleEndpointOneInvalidSymbol)
+{
+  Sleep();
+
+  const auto success_symbol = iex::Symbol("tsla");
+  const auto failure_symbol = iex::Symbol("aaaaa");
+
+  const auto res = iex::Get<iex::Endpoint::QUOTE>(iex::SymbolSet{success_symbol, failure_symbol}, kOptions);
+  EXPECT_NE(res.second, iex::ErrorCode());
+
+  for (const auto& [symbol, quote] : res.first)
+  {
+    if (symbol == success_symbol)
+      EXPECT_NE(quote, nullptr);
+    else if (symbol == failure_symbol)
+      EXPECT_EQ(quote, nullptr);
+  }
+}
+
 TEST(Api, MultipleSymbolMultipleEndpoint)
 {
-  SleepIfCI();
+  Sleep();
 
   const auto res = iex::Get<iex::Endpoint::QUOTE, iex::Endpoint::COMPANY>(
       iex::SymbolSet{iex::Symbol("tsla"), iex::Symbol("aapl")}, kOptions);
@@ -191,5 +236,32 @@ TEST(Api, MultipleSymbolMultipleEndpoint)
     const auto& [quote, company] = tuple;
     EXPECT_NE(quote, nullptr);
     EXPECT_NE(company, nullptr);
+  }
+}
+
+TEST(Api, MultipleSymbolMultipleEndpointOneInvalidSymbol)
+{
+  Sleep();
+
+  const auto success_symbol = iex::Symbol("tsla");
+  const auto failure_symbol = iex::Symbol("aaaaa");
+
+  const auto res =
+      iex::Get<iex::Endpoint::QUOTE, iex::Endpoint::COMPANY>(iex::SymbolSet{success_symbol, failure_symbol}, kOptions);
+  EXPECT_NE(res.second, iex::ErrorCode());
+
+  for (const auto& [symbol, tuple] : res.first)
+  {
+    const auto& [quote, company] = tuple;
+    if (symbol == success_symbol)
+    {
+      EXPECT_NE(quote, nullptr);
+      EXPECT_NE(company, nullptr);
+    }
+    else if (symbol == failure_symbol)
+    {
+      EXPECT_EQ(quote, nullptr);
+      EXPECT_EQ(company, nullptr);
+    }
   }
 }
