@@ -242,15 +242,25 @@ class Endpoint
   const json::JsonStorage data_;
 };
 
-struct SymbolEndpoint : Endpoint
+/**
+ * Base class for all stock endpoints.
+ */
+struct StockEndpoint : Endpoint
 {
-  SymbolEndpoint() = delete;
+  StockEndpoint() = delete;
 
-  SymbolEndpoint(Symbol sym, json::JsonStorage data) : Endpoint(std::move(data)), symbol(std::move(sym)) {}
+  StockEndpoint(Symbol sym, json::JsonStorage data) : Endpoint(std::move(data)), symbol(std::move(sym)) {}
 
   const Symbol symbol;
 };
 
+/**
+ * For each specialization, the following is defined:
+ * type: Corresponding class type.
+ * kPath: Url endpoint path.
+ * kName: Human-readable label.
+ * is_stock_endpoint: Indication of whether the endpoint is a stock endpoint (useful for batch calls).
+ */
 template <Endpoint::Type>
 struct EndpointTypedefMap;
 
@@ -290,6 +300,9 @@ struct EndpointTypedefMap<Endpoint::Type::COMPANY>
   using is_stock_endpoint = std::true_type;
 };
 
+/**
+ * Helper for getting the corresponding class type for an Endpoint::Type.
+ */
 template <Endpoint::Type T>
 using EndpointTypename = typename EndpointTypedefMap<T>::type;
 
@@ -318,7 +331,7 @@ struct IsBasicEndpoint : std::negation<typename EndpointTypedefMap<Type>::is_sto
 };
 
 template <Endpoint::Type Type>
-struct IsSymbolEndpoint : EndpointTypedefMap<Type>::is_stock_endpoint
+struct IsStockEndpoint : EndpointTypedefMap<Type>::is_stock_endpoint
 {
 };
 
@@ -328,7 +341,7 @@ struct AreBasicEndpoints : std::bool_constant<std::conjunction_v<IsBasicEndpoint
 };
 
 template <Endpoint::Type... Types>
-struct AreSymbolEndpoints : std::bool_constant<std::conjunction_v<IsSymbolEndpoint<Types>...>>
+struct AreStockEndpoints : std::bool_constant<std::conjunction_v<IsStockEndpoint<Types>...>>
 {
 };
 
@@ -359,14 +372,23 @@ Url GetUrl(const SymbolSet& symbols, const Endpoint::OptionsObject& options)
 // endregion Url Helpers
 }  // namespace detail
 
+/**
+ * Pointer type for Endpoints.
+ */
 template <Endpoint::Type Type>
 using EndpointPtr = std::shared_ptr<const EndpointTypename<Type>>;
 
+/**
+ * Pointer type for non-Stock Endpoints.
+ */
 template <Endpoint::Type Type, typename = std::enable_if_t<detail::IsBasicEndpoint<Type>::value>>
 using BasicEndpointPtr = EndpointPtr<Type>;
 
-template <Endpoint::Type Type, typename = std::enable_if_t<detail::IsSymbolEndpoint<Type>::value>>
-using SymbolEndpointPtr = EndpointPtr<Type>;
+/**
+ * Pointer type for Stock Endpoints.
+ */
+template <Endpoint::Type Type, typename = std::enable_if_t<detail::IsStockEndpoint<Type>::value>>
+using StockEndpointPtr = EndpointPtr<Type>;
 
 namespace detail
 {
@@ -374,22 +396,41 @@ template <template <Endpoint::Type, typename...> typename PtrType, Endpoint::Typ
 using EndpointTuple = std::enable_if_t<std::negation_v<detail::IsEmpty<Types...>>, std::tuple<PtrType<Types>...>>;
 }  // namespace detail
 
+/**
+ * Tuple of non-Stock Endpoints.
+ */
 template <Endpoint::Type... Types>
 using BasicEndpointTuple = detail::EndpointTuple<BasicEndpointPtr, Types...>;
 
+/**
+ * Tuple of Stock Endpoints.
+ */
 template <Endpoint::Type... Types>
-using SymbolEndpointTuple = detail::EndpointTuple<SymbolEndpointPtr, Types...>;
+using StockEndpointTuple = detail::EndpointTuple<StockEndpointPtr, Types...>;
 
+/**
+ * Factory method for Basic Endpoints.
+ * @tparam Type a Basic Endpoint enumeration member.
+ * @param input_json input JSON data
+ * @return a BasicEndpointPtr
+ */
 template <Endpoint::Type Type>
 auto EndpointFactory(const json::Json& input_json)
 {
   return std::make_shared<typename BasicEndpointPtr<Type>::element_type>(json::JsonStorage{input_json});
 }
 
+/**
+ * Factory method for Stock Endpoints.
+ * @tparam Type a Stock Endpoint enumeration member.
+ * @param input_json input JSON data
+ * @param symbol the stock's symbol
+ * @return a StockEndpointPtr
+ */
 template <Endpoint::Type Type>
 auto EndpointFactory(const json::Json& input_json, const Symbol& symbol)
 {
-  return std::make_shared<typename SymbolEndpointPtr<Type>::element_type>(json::JsonStorage{input_json}, symbol);
+  return std::make_shared<typename StockEndpointPtr<Type>::element_type>(json::JsonStorage{input_json}, symbol);
 }
 
 namespace detail
@@ -426,7 +467,7 @@ auto Get(const SymbolSet& symbols, const Endpoint::OptionsObject& options)
 
   if constexpr (IsPlural<Types...>::value)
   {
-    using return_type = ValueWithErrorCode<SymbolMap<SymbolEndpointTuple<Types...>>>;
+    using return_type = ValueWithErrorCode<SymbolMap<StockEndpointTuple<Types...>>>;
 
     const auto url = GetUrl<Types...>(symbols, options);
     auto vec = PerformCurl(url);
@@ -435,7 +476,7 @@ auto Get(const SymbolSet& symbols, const Endpoint::OptionsObject& options)
       return return_type{{}, std::move(vec.second)};
     }
 
-    SymbolMap<SymbolEndpointTuple<Types...>> map;
+    SymbolMap<StockEndpointTuple<Types...>> map;
     try
     {
       const auto& json = vec.first[url].first;
@@ -474,7 +515,7 @@ auto Get(const SymbolSet& symbols, const Endpoint::OptionsObject& options)
   else
   {
     constexpr Endpoint::Type kType = std::get<0>(std::make_tuple(Types...));
-    using return_type = ValueWithErrorCode<SymbolMap<SymbolEndpointPtr<kType>>>;
+    using return_type = ValueWithErrorCode<SymbolMap<StockEndpointPtr<kType>>>;
 
     const auto url = GetUrl<kType>(symbols, options);
     auto vec = PerformCurl(url);
@@ -483,7 +524,7 @@ auto Get(const SymbolSet& symbols, const Endpoint::OptionsObject& options)
       return return_type{{}, std::move(vec.second)};
     }
 
-    SymbolMap<SymbolEndpointPtr<kType>> map;
+    SymbolMap<StockEndpointPtr<kType>> map;
     try
     {
       const auto& json = vec.first[url].first;
@@ -536,7 +577,8 @@ ErrorCode Init(Keys keys);
  * @tparam Types A parameter pack of Endpoint::Types (must have positive length)
  * @param symbol The symbol's data to fetch
  * @param options Optional query options
- * @return The fetched data
+ * @return The fetched data along with an ErrorCode. The ErrorCode will indicate failure if at least one Endpoint
+ * failed. Successful endpoints will be non-nullptr if they succeeded even if one failed.
  */
 template <Endpoint::Type... Types>
 auto Get(const Symbol& symbol, const Endpoint::OptionsObject& options = {})
@@ -553,7 +595,8 @@ auto Get(const Symbol& symbol, const Endpoint::OptionsObject& options = {})
  * @tparam Types A parameter pack of Endpoint::Types (must have positive length)
  * @param symbols A collection of symbols to fetch data for
  * @param options Optional query options
- * @return The fetched data
+ * @return The fetched data along with an ErrorCode. The ErrorCode will indicate failure if at least one Endpoint
+ * failed. Successful endpoints will be non-nullptr if they succeeded even if one failed.
  */
 template <Endpoint::Type... Types>
 auto Get(const SymbolSet& symbols, const Endpoint::OptionsObject& options = {})
@@ -565,10 +608,10 @@ auto Get(const SymbolSet& symbols, const Endpoint::OptionsObject& options = {})
  * Fetches from IEX Cloud the given Endpoint::Type.
  * @tparam Type The Endpoint::Type to fetch
  * @param options Optional query options
- * @return The fetched data
+ * @return The fetched data along with an ErrorCode.
  */
 template <Endpoint::Type Type>
-ValueWithErrorCode<BasicEndpointPtr<Type>> Get(const Endpoint::OptionsObject& options = {})
+auto Get(const Endpoint::OptionsObject& options = {})
 {
   return detail::Get<Type>(options);
 }
