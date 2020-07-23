@@ -263,7 +263,10 @@ struct StockEndpoint : Endpoint
 };
 
 /**
- * For each specialization, the following is defined:
+ * For each endpoint class specialization, the following is defined:
+ * type: Corresponding base class type.
+ *
+ * For each endpoint specialization, the following is defined:
  * type: Corresponding class type.
  * kPath: Url endpoint path.
  * kName: Human-readable label.
