@@ -366,12 +366,12 @@ struct IsPlural : std::bool_constant<sizeof...(Types) >= 2>
 };
 
 template <Endpoint::Type Type>
-struct IsBasicEndpoint : std::negation<typename EndpointTypedefMap<Type>::is_stock_endpoint>
+struct IsBasicEndpoint : std::bool_constant<EndpointTypedefMap<Type>::kClassType == Endpoint::Type::BASIC>
 {
 };
 
 template <Endpoint::Type Type>
-struct IsStockEndpoint : EndpointTypedefMap<Type>::is_stock_endpoint
+struct IsStockEndpoint : std::bool_constant<EndpointTypedefMap<Type>::kClassType == Endpoint::Type::STOCK>
 {
 };
 
