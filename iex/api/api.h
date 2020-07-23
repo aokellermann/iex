@@ -346,22 +346,28 @@ struct EndpointTypedefMap<Endpoint::Type::COMPANY>
 template <Endpoint::Type T>
 using EndpointTypename = typename EndpointTypedefMap<T>::type;
 
-namespace detail
-{
 // region SFINAE
 
-template <Endpoint::Type... Types>
-struct IsEmpty : std::bool_constant<sizeof...(Types) == 0>
+namespace detail
+{
+template <auto... Ts>
+struct ParameterCount : std::integral_constant<std::size_t, sizeof...(Ts)>
+{
+};
+}  // namespace detail
+
+template <auto... Ts>
+struct IsEmpty : std::bool_constant<detail::ParameterCount<Ts...>::value == 0>
 {
 };
 
-template <Endpoint::Type... Types>
-struct IsSingleton : std::bool_constant<sizeof...(Types) == 1>
+template <auto... Ts>
+struct IsSingleton : std::bool_constant<detail::ParameterCount<Ts...>::value == 1>
 {
 };
 
-template <Endpoint::Type... Types>
-struct IsPlural : std::bool_constant<sizeof...(Types) >= 2>
+template <auto... Ts>
+struct IsPlural : std::bool_constant<detail::ParameterCount<Ts...>::value >= 2>
 {
 };
 
@@ -387,6 +393,8 @@ struct AreStockEndpoints : std::bool_constant<std::conjunction_v<IsStockEndpoint
 
 // endregion SFINAE
 
+namespace detail
+{
 // region Url Helpers
 
 using Url = curl::Url;
@@ -421,32 +429,32 @@ using EndpointPtr = std::shared_ptr<const EndpointTypename<Type>>;
 /**
  * Pointer type for non-Stock Endpoints.
  */
-template <Endpoint::Type Type, typename = std::enable_if_t<detail::IsBasicEndpoint<Type>::value>>
-using BasicEndpointPtr = EndpointPtr<Type>;
+template <Endpoint::Type Type>
+using BasicEndpointPtr = std::enable_if_t<IsBasicEndpoint<Type>::value, EndpointPtr<Type>>;
 
 /**
  * Pointer type for Stock Endpoints.
  */
-template <Endpoint::Type Type, typename = std::enable_if_t<detail::IsStockEndpoint<Type>::value>>
-using StockEndpointPtr = EndpointPtr<Type>;
+template <Endpoint::Type Type>
+using StockEndpointPtr = std::enable_if_t<IsStockEndpoint<Type>::value, EndpointPtr<Type>>;
 
-namespace detail
-{
-template <template <Endpoint::Type, typename...> typename PtrType, Endpoint::Type... Types>
-using EndpointTuple = std::enable_if_t<std::negation_v<detail::IsEmpty<Types...>>, std::tuple<PtrType<Types>...>>;
-}  // namespace detail
+/**
+ * Tuple of Endpoints.
+ */
+template <template <Endpoint::Type> typename PtrType = EndpointPtr, Endpoint::Type... Types>
+using EndpointTuple = std::enable_if_t<std::negation_v<IsEmpty<Types...>>, std::tuple<PtrType<Types>...>>;
 
 /**
  * Tuple of non-Stock Endpoints.
  */
 template <Endpoint::Type... Types>
-using BasicEndpointTuple = detail::EndpointTuple<BasicEndpointPtr, Types...>;
+using BasicEndpointTuple = EndpointTuple<BasicEndpointPtr, Types...>;
 
 /**
  * Tuple of Stock Endpoints.
  */
 template <Endpoint::Type... Types>
-using StockEndpointTuple = detail::EndpointTuple<StockEndpointPtr, Types...>;
+using StockEndpointTuple = EndpointTuple<StockEndpointPtr, Types...>;
 
 /**
  * Factory method for Basic Endpoints.
