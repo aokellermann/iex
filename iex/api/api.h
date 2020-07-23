@@ -512,9 +512,9 @@ auto Get(const SymbolSet& symbols, const Endpoint::OptionsObject& options)
           const auto endpoint_iter =
               map.emplace(symbol,
                           std::make_tuple((
-                                              symbol_iter->find(EndpointTypedefMap<Types>::kPath) != symbol_iter->end()
-                                              ? EndpointFactory<Types>(*symbol_iter->find(EndpointTypedefMap<Types>::kPath), symbol)
-                                              : nullptr)...))
+                              symbol_iter->find(EndpointTypedefMap<Types>::kPath) != symbol_iter->end()
+                                  ? EndpointFactory<Types>(*symbol_iter->find(EndpointTypedefMap<Types>::kPath), symbol)
+                                  : nullptr)...))
                   .first;
           std::apply(
               [&ec](auto&&... args) {
