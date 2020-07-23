@@ -32,15 +32,6 @@ sudo make install
 ```
 Substitute `/usr` with your desired install location.
 
-### Usage
-
-Simply include the public header `iex/iex.h`.
-
-If you are building with CMake, you can link using `iex::iex`:
-```cmake
-target_link_libraries(target_name iex::iex)
-```
-
 ### Contributing
 See [contributing guidelines](.github/CONTRIBUTING.md).
 
@@ -58,5 +49,9 @@ See [contributing guidelines](.github/CONTRIBUTING.md).
   * Smart querying (will not make API call if relevant data is already cached)
   * Cache management
   * Cache-only querying
+
+##### Intended Usage
+* Public header `iex.h`.
+* Link with `iex::iex` using CMake.
 
 [Data provided by IEX Cloud](https://iexcloud.io)

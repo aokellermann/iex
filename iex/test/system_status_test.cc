@@ -4,6 +4,8 @@
  * @copyright 2020 Antony Kellermann
  */
 
+#include "iex/api/system_status.h"
+
 #include <gtest/gtest.h>
 
 #include "iex/iex.h"

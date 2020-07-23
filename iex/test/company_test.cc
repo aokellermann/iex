@@ -4,6 +4,8 @@
  * @copyright 2020 Antony Kellermann
  */
 
+#include "iex/api/company.h"
+
 #include <gtest/gtest.h>
 
 #include "iex/iex.h"

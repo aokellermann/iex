@@ -4,6 +4,8 @@
  * @copyright 2020 Antony Kellermann
  */
 
+#include "iex/api/symbols.h"
+
 #include <gtest/gtest.h>
 
 #include <vector>
