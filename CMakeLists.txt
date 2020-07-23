@@ -50,7 +50,7 @@ set(iex_headers
         iex.h
         )
 set(iex_sources
-        api/api.cc
+        iex.cc
         detail/curl_wrapper.cc
         )
 
