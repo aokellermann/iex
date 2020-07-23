@@ -10,9 +10,6 @@
 #include <thread>
 #include <vector>
 
-#include "iex/api/company.h"
-#include "iex/api/quote.h"
-#include "iex/api/system_status.h"
 #include "iex/detail/curl_wrapper.h"
 #include "iex/iex.h"
 
