@@ -1,12 +1,11 @@
 /**
- * @file iex.h
+ * @file api.h
  * @author Antony Kellermann
  * @copyright 2020 Antony Kellermann
  */
 
 #pragma once
 
-<<<<<<< HEAD
 #include <chrono>
 #include <cstdint>
 #include <ios>
@@ -136,7 +135,7 @@ enum DataType
 /**
  * Base class for all endpoints.
  */
-class Endpoint
+class Endpoint : public json::JsonBidirectionalSerializable
 {
  public:
   // region Types
@@ -243,12 +242,29 @@ class Endpoint
 
   // endregion Types
 
-  inline explicit Endpoint(json::JsonStorage data) : data_(std::move(data)) {}
+  inline explicit Endpoint(json::JsonStorage data)
+      : data_(std::move(data)),
+        timestamp_(std::chrono::duration_cast<Timestamp>(std::chrono::system_clock::now().time_since_epoch()))
+  {
+  }
 
-  virtual ~Endpoint() = default;
+  ~Endpoint() override = default;
+
+  [[nodiscard]] inline Timestamp GetTimestamp() const noexcept { return timestamp_; }
+
+  // region Json
+
+  [[nodiscard]] ValueWithErrorCode<json::Json> Serialize() const override { return data_.Serialize(); }
+
+  ErrorCode Deserialize(const json::Json& input_json) override { return data_.Deserialize(input_json); }
+
+  // endregion Json
 
  protected:
-  const json::JsonStorage data_;
+  json::JsonStorage data_;
+
+ private:
+  const Timestamp timestamp_;
 };
 
 /**
@@ -350,12 +366,12 @@ struct IsPlural : std::bool_constant<sizeof...(Types) >= 2>
 };
 
 template <Endpoint::Type Type>
-struct IsBasicEndpoint : std::bool_constant<EndpointTypedefMap<Type>::kClassType == Endpoint::Type::BASIC>
+struct IsBasicEndpoint : std::negation<typename EndpointTypedefMap<Type>::is_stock_endpoint>
 {
 };
 
 template <Endpoint::Type Type>
-struct IsStockEndpoint : std::bool_constant<EndpointTypedefMap<Type>::kClassType == Endpoint::Type::STOCK>
+struct IsStockEndpoint : EndpointTypedefMap<Type>::is_stock_endpoint
 {
 };
 
@@ -643,10 +659,3 @@ auto Get(const Endpoint::OptionsObject& options = {})
 // endregion Interface
 
 }  // namespace iex
-=======
-#include "iex/api/api.h"
-#include "iex/api/company.h"
-#include "iex/api/quote.h"
-#include "iex/api/symbols.h"
-#include "iex/api/system_status.h"
->>>>>>> master

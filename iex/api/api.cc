@@ -4,7 +4,7 @@
  * @copyright 2020 Antony Kellermann
  */
 
-#include "iex.h"
+#include "iex/api/api.h"
 
 #include <mutex>
 #include <thread>
