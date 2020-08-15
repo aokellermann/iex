@@ -8,8 +8,8 @@
 
 #include <string>
 
-#include "iex/detail/json_serializer.h"
-#include "iex/iex.h"
+#include "include/detail/json_serializer.h"
+#include "include/iex.h"
 
 namespace iex
 {

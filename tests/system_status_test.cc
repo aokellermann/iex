@@ -6,7 +6,7 @@
 
 #include <gtest/gtest.h>
 
-#include "iex/iex.h"
+#include "include/iex.h"
 
 TEST(SystemStatus, Get)
 {

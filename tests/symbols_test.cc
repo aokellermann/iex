@@ -8,7 +8,7 @@
 
 #include <vector>
 
-#include "iex/iex.h"
+#include "include/iex.h"
 
 const std::vector<const char*> kSymbols = {
     "aapl", "msft", "tsla", "intc", "amd", "bynd", "aig+", "brk.a", "ver-f", "mj", "qqq", "arkq", "robo",

@@ -13,7 +13,7 @@
 
 #include "iex/detail/common.h"
 #include "iex/detail/singleton.h"
-#include "iex/iex.h"
+#include "include/iex.h"
 
 /**
  * Test whether singleton works properly.

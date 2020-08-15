@@ -6,7 +6,7 @@
 
 #include <gtest/gtest.h>
 
-#include "iex/iex.h"
+#include "include/iex.h"
 
 static const iex::Endpoint::OptionsObject kOptions{{}, {}, iex::DataType::SANDBOX};
 

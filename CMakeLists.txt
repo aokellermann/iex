@@ -54,8 +54,8 @@ set(iex_sources
         detail/curl_wrapper.cc
         )
 
-set(iex_detail_path iex/detail)
-set(iex_api_path iex/api)
+set(iex_detail_path include/detail)
+set(iex_api_path include/api)
 
 # Specify source directory.
 list(TRANSFORM iex_headers PREPEND "iex/")

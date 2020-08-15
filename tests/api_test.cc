@@ -10,7 +10,7 @@
 #include <thread>
 #include <vector>
 
-#include "iex/iex.h"
+#include "include/iex.h"
 
 static const iex::Symbol kValidSymbol("tsla");
 static const iex::Symbol kValidSymbol2("aapl");
