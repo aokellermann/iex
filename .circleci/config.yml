@@ -16,7 +16,7 @@ jobs:
             rm -rf build
             mkdir build
             cd build
-            cmake -DCMAKE_BUILD_TYPE=Debug -IEX_BUILD_WARNINGS:BOOL=ON -IEX_BUILD_TESTING:BOOL=ON -IEX_BUILD_DOCUMENTATION:BOOL=ON -IEX_TIDY:BOOL=ON ..
+            cmake -DCMAKE_BUILD_TYPE=Debug -DIEX_BUILD_WARNINGS:BOOL=ON -DIEX_BUILD_TESTING:BOOL=ON -DIEX_BUILD_DOCUMENTATION:BOOL=ON -DIEX_TIDY:BOOL=ON ..
       - run:
           name: Style
           command: bash ././scripts/format.sh check

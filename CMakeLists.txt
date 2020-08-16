@@ -49,7 +49,7 @@ include(GNUInstallDirs)
 
 if (IEX_BUILD_LIBRARY)
     add_subdirectory(include)
-    add_subdirectory(src)
+    add_subdirectory(lib)
 endif ()
 
 # Build GTest if unit testing enabled.
@@ -58,5 +58,5 @@ if (IEX_BUILD_TESTING)
 endif ()
 
 if (IEX_BUILD_DOCUMENTATION)
-    add_subdirectory(docs)
+    add_subdirectory(doc)
 endif ()
