@@ -18,11 +18,15 @@ option(IEX_BUILD_WARNINGS "Enable compiler warnings." OFF)
 option(IEX_BUILD_TESTING "Enable unit testing." OFF)
 option(IEX_BUILD_DOCUMENTATION "Generate Doxygen documentation." OFF)
 option(IEX_ENABLE_STRESS_TESTS "Enable stress unit testing" OFF)
+option(IEX_TIDY "Run clang-tidy" OFF)
+
+if (IEX_BUILD_TESTING AND NOT IEX_BUILD_LIBRARY)
+    set(IEX_BUILD_LIBRARY ON)
+endif ()
 
 # At least C++17
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
-message(STATUS "CMAKE_CXX_STANDARD: ${CMAKE_CXX_STANDARD}")
 
 # Set a default build type if none was specified
 if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -35,26 +39,11 @@ if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
             "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif ()
 
-# Set default options for Debug build
-if (CMAKE_BUILD_TYPE STREQUAL Debug)
-    if (NOT IEX_BUILD_WARNINGS)
-        set(IEX_BUILD_WARNINGS ON)
-    endif ()
-
-    if (NOT CMAKE_EXPORT_COMPILE_COMMANDS)
-        set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-    endif ()
-
-    # Turn on export compile commands (for clang-tidy)
-    if (NOT CMAKE_EXPORT_COMPILE_COMMANDS)
-        set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-    endif ()
+# clang-tidy
+if (IEX_TIDY)
+    set(CMAKE_CXX_CLANG_TIDY "clang-tidy")
+    set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 endif ()
-
-message(STATUS "IEX_BUILD_WARNINGS: ${IEX_BUILD_WARNINGS}")
-message(STATUS "IEX_BUILD_TESTING: ${IEX_BUILD_TESTING}")
-message(STATUS "IEX_BUILD_DOCUMENTATION: ${IEX_BUILD_DOCUMENTATION}")
-message(STATUS "IEX_ENABLE_STRESS_TESTS: ${IEX_ENABLE_STRESS_TESTS}")
 
 include(GNUInstallDirs)
 

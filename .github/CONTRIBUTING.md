@@ -1,3 +1,8 @@
+# Contributing
+In addition to the dependencies listed [here](../README.md#Dependencies), you will also need:
+* clang-tidy 10.0.0+
+* clang-format 10.0.0+
+
 ### Code Style
 C++ code in this repository follows [Google C++ Style](https://google.github.io/styleguide/cppguide.html) fairly closely. Divergences and further specifications are laid out below:
 * Maximum line length is 120 characters.
@@ -8,27 +13,28 @@ C++ code in this repository follows [Google C++ Style](https://google.github.io/
 * Exceptions may be thrown.
 When in doubt, follow conventions in preexisting code.
 
-You code's conformity to this repo's style can be checked with `style.sh`. Any nonconformities will be printed to output. Your code must be built before running this script due to the way that `clang-tidy` works. Due to the usage of GoogleTest, 100,000+ suppressed warnings will be generated, but you don't have to worry about this. Dependencies for this script are:
-* clang-tidy 10.0.0+
-* clang-format 10.0.0+
+You can automatically format your code with:
+ ```bash
+bash scripts/format.sh
+```
 
 ### Building
-Ensure all dependencies listed [here](../README.md#Dependencies) are installed.
-
 The project's `CMakeLists.txt` supports the following options:
-* `IEX_ENABLE_ALLWARNINGS`: Turn on GCC/Clang compatible compiler warnings. Note: warnings will cause build to fail due to addition of `Werror`.
-* `IEX_BUILD_TESTING`: Build unit test target in addition to `iex`.
-* `IEX_ENABLE_STRESS_TESTS`: Build stress unit tests (CI does not run these).
+* `IEX_BUILD_LIBRARY`: Build `iex` library.
+* `IEX_BUILD_WARNINGS`: Turn on extra compiler warnings.
+* `IEX_BUILD_TESTING`: Build unit test target.
 * `IEX_BUILD_DOCUMENTATION`: Build documentation using `doxygen`.
+* `IEX_ENABLE_STRESS_TESTS`: Build stress unit tests (CI does not run these).
+* `IEX_TIDY`: Run static analyzer.
 
 To perform a weed whack build, run:
 ```bash
 mkdir build && cd build
-cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=ON -DIEX_BUILD_DOCUMENTATION:BOOL=OFF -DIEX_ENABLE_ALLWARNINGS:BOOL=ON -DIEX_BUILD_TESTING:BOOL=ON ..
+cmake -DCMAKE_BUILD_TYPE=Debug -IEX_BUILD_WARNINGS:BOOL=ON -IEX_BUILD_TESTING:BOOL=ON -IEX_BUILD_DOCUMENTATION:BOOL=ON -IEX_TIDY:BOOL=ON ..
 cd ..
 cmake --build build/
 ```
 After, you can run unit tests:
 ```bash
-././build/iex/test/unit_test
+././build/tests/unit_test
 ```

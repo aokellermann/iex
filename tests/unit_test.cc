@@ -69,7 +69,7 @@ TEST(Singleton, Variadic)
   struct A
   {
     A() = default;
-    A(int) {}
+    explicit A(int) {}
     A(double, int) {}
   };
 
