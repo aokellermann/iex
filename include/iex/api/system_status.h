@@ -9,8 +9,8 @@
 #include <string>
 #include <utility>
 
-#include "include/detail/json_serializer.h"
-#include "include/iex.h"
+#include "iex/detail/json_serializer.h"
+#include "iex/iex.h"
 
 namespace iex
 {

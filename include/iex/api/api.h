@@ -19,10 +19,10 @@
 #include <utility>
 #include <vector>
 
-#include "forward.h"
-#include "include/detail/common.h"
-#include "include/detail/curl_wrapper.h"
-#include "include/detail/json_serializer.h"
+#include "iex/api/forward.h"
+#include "iex/detail/common.h"
+#include "iex/detail/curl_wrapper.h"
+#include "iex/detail/json_serializer.h"
 
 namespace iex
 {
