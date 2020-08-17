@@ -1,7 +1,7 @@
 find_package(GTest 1.8 REQUIRED)
 
-if (IEX_ENABLE_STRESS_TESTS)
-    add_compile_definitions(-DIEX_ENABLE_STRESS_TESTS)
+if (IEX_BUILD_STRESS_TESTS)
+    add_compile_definitions(IEX_BUILD_STRESS_TESTS)
 endif ()
 
 enable_testing()
