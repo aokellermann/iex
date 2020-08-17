@@ -28,7 +28,7 @@ After dependencies are installed, run from a shell:
 git clone https://github.com/aokellermann/iex.git
 mkdir iex/build && cd iex/build
 cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr ..
-sudo make install
+sudo cmake --build . --target install
 ```
 Substitute `/usr` with your desired install location.
 

@@ -12,9 +12,9 @@ message(STATUS "${PROJECT_NAME} version: ${PROJECT_VERSION}")
 # Options
 option(IEX_BUILD_LIBRARY "Build iex library." ON)
 option(IEX_BUILD_WARNINGS "Build with compiler warnings." OFF)
-option(IEX_BUILD_TESTING "Build unit tests." OFF)
-option(IEX_BUILD_DOCUMENTATION "Build Doxygen documentation." OFF)
+option(IEX_BUILD_TESTS "Build unit tests." OFF)
 option(IEX_BUILD_STRESS_TESTS "Build stress unit tests." OFF)
+option(IEX_BUILD_DOCUMENTATION "Build Doxygen documentation." OFF)
 option(IEX_TIDY "Run static analyzer." OFF)
 option(BUILD_SHARED_LIBS "Build shared library instead of static." ON)
 
@@ -51,7 +51,7 @@ if (IEX_BUILD_LIBRARY)
     add_subdirectory(lib)
 endif ()
 
-if (IEX_BUILD_TESTING)
+if (IEX_BUILD_TESTS)
     add_subdirectory(tests)
 endif ()
 
