@@ -1,14 +1,16 @@
+# Find libraries
+find_package(CURL REQUIRED)
+find_package(nlohmann_json 3.2.0 REQUIRED)
+set(IEX_LINK_LIBRARIES CURL::libcurl nlohmann_json::nlohmann_json)
+
 set(iex_sources
         api.cc
         curl_wrapper.cc
         )
 
-add_library(${PROJECT_NAME} SHARED ${iex_sources})
-
-# Find and link dependencies
-find_package(CURL REQUIRED)
-find_package(nlohmann_json 3.2.0 REQUIRED)
-target_link_libraries(${PROJECT_NAME} CURL::libcurl nlohmann_json::nlohmann_json)
+# Add iex library
+add_library(${IEX_LIBRARY} ${iex_sources})
+target_link_libraries(${IEX_LIBRARY} ${IEX_LINK_LIBRARIES})
 
 # Enable compiler warnings
 if (IEX_BUILD_WARNINGS)

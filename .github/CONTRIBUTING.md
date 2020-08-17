@@ -21,12 +21,13 @@ bash scripts/format.sh
 
 ### Building
 The project's `CMakeLists.txt` supports the following options:
-* `IEX_BUILD_LIBRARY`: Build `iex` library.
-* `IEX_BUILD_WARNINGS`: Turn on extra compiler warnings.
-* `IEX_BUILD_TESTING`: Build unit test target.
-* `IEX_BUILD_DOCUMENTATION`: Build documentation using `doxygen`.
-* `IEX_ENABLE_STRESS_TESTS`: Build stress unit tests (CI does not run these).
+* `IEX_BUILD_LIBRARY`: Build `iex` library (default on).
+* `IEX_BUILD_WARNINGS`: Build with compiler warnings.
+* `IEX_BUILD_TESTING`: Build unit tests.
+* `IEX_BUILD_DOCUMENTATION`: Build Doxygen documentation.
+* `IEX_BUILD_STRESS_TESTS`: Build stress unit tests (CI does not run these).
 * `IEX_TIDY`: Run static analyzer.
+* `BUILD_SHARED_LIBS`: Build shared library rather than static (default on).
 
 To perform a weed whack build, run:
 ```bash

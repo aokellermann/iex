@@ -1,15 +1,15 @@
 set(iex_header
         iex/iex.h
         )
-set(iex_detail_path iex/detail)
-set(iex_api_path iex/api)
+set(iex_detail_paths iex/api iex/detail)
 
 # Install headers
+set(iex_include_install_destination ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME})
 install(FILES ${iex_header}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}
+        DESTINATION ${iex_include_install_destination}
         COMPONENT development
         )
-install(DIRECTORY ${iex_detail_path} ${iex_api_path}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}
+install(DIRECTORY ${iex_detail_paths}
+        DESTINATION ${iex_include_install_destination}
         COMPONENT development
         )

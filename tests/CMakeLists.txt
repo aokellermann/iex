@@ -1,9 +1,10 @@
+find_package(GTest 1.8 REQUIRED)
+
 if (IEX_ENABLE_STRESS_TESTS)
-    add_definitions(-DIEX_ENABLE_STRESS_TESTS)
+    add_compile_definitions(-DIEX_ENABLE_STRESS_TESTS)
 endif ()
 
 enable_testing()
-find_package(GTest 1.8 REQUIRED)
 set(GTEST_LIBRARIES GTest::GTest GTest::Main)
 
 add_executable(unit_test
@@ -16,5 +17,5 @@ add_executable(unit_test
         symbols_test.cc
         )
 
-target_link_libraries(unit_test ${PROJECT_NAME} ${GTEST_LIBRARIES})
+target_link_libraries(unit_test ${IEX_LIBRARY} ${GTEST_LIBRARIES})
 gtest_discover_tests(unit_test)

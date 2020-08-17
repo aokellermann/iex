@@ -2,7 +2,6 @@
 
 include(CMakeFindDependencyMacro)
 
-#### Required dependencies  ####
 find_dependency(CURL REQUIRED)
 find_dependency(nlohmann_json 3.2.0 REQUIRED)
 find_dependency(Doxygen)
