@@ -2,6 +2,7 @@
 In addition to the dependencies listed [here](../README.md#Dependencies), you will also need:
 * clang-tidy 10.0.0+
 * clang-format 10.0.0+
+* gtest 1.8+
 
 ### Code Style
 C++ code in this repository follows [Google C++ Style](https://google.github.io/styleguide/cppguide.html) fairly closely. Divergences and further specifications are laid out below:
