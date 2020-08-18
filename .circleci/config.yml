@@ -3,25 +3,26 @@ version: 2
 jobs:
   build:
     docker:
-      - image: aokellermann/iex:ci
-        auth:
-          username: aokellermann
-          password: $DOCKERHUB_PASSWORD
+      - image: archlinux
+
     steps:
       - checkout
+      - run:
+          name: Install required tools
+          command: pacman -Sy --noconfirm base base-devel cmake clang git curl nlohmann-json doxygen gtest
       - run:
           name: Configure
           command: |
             rm -rf build
             mkdir build
             cd build
-            cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=ON -DIEX_BUILD_DOCUMENTATION:BOOL=ON -DIEX_ENABLE_ALLWARNINGS:BOOL=ON -DIEX_BUILD_TESTING:BOOL=ON ..
+            cmake -DCMAKE_BUILD_TYPE=Debug -DIEX_BUILD_WARNINGS:BOOL=ON -DIEX_BUILD_TESTS:BOOL=ON -DIEX_BUILD_DOCUMENTATION:BOOL=ON -DIEX_TIDY:BOOL=ON ..
       - run:
           name: Style
-          command: ./style.sh
+          command: bash ././scripts/format.sh check
       - run:
           name: Compile
           command: cmake --build build/
       - run:
           name: Unit Test
-          command: ././build/iex/test/unit_test
+          command: ././build/tests/unit_test

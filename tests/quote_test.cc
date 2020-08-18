@@ -4,38 +4,19 @@
  * @copyright 2020 Antony Kellermann
  */
 
-#include "iex/api/quote.h"
-
 #include <gtest/gtest.h>
 
 #include "iex/iex.h"
 
-TEST(Quote, GetWithoutTemplate)
+static const iex::Endpoint::OptionsObject kOptions{{}, {}, iex::DataType::SANDBOX};
+
+TEST(Quote, Get)
 {
-  iex::Symbol sym("tsla");
-  const auto opts =
-      iex::RequestOptions{iex::Endpoint::Options{iex::Quote::DisplayPercentOption()}, {}, iex::DataType::SANDBOX};
-  iex::SymbolRequest req(sym, iex::Request{iex::Endpoint::Type::QUOTE, opts});
-  auto response = iex::Get(req);
-  EXPECT_EQ(response.second, iex::ErrorCode());
-  ASSERT_TRUE(response.second.Success());
+  const auto response = iex::Get<iex::Endpoint::Type::QUOTE>(iex::Symbol("tsla"), kOptions);
+  ASSERT_EQ(response.second, iex::ErrorCode());
 
-  const auto* const sym_ptr = response.first.Get(sym);
-  ASSERT_NE(sym_ptr, nullptr);
-
-  const auto end_ptr = sym_ptr->Get<iex::Endpoint::Type::QUOTE>(opts);
-  EXPECT_NE(end_ptr, nullptr);
-}
-
-TEST(Quote, GetWithTemplate)
-{
-  auto response =
-      iex::Get<iex::Endpoint::Type::QUOTE>(iex::Symbol("tsla"), iex::RequestOptions{{}, {}, iex::DataType::SANDBOX});
-  EXPECT_EQ(response.second, iex::ErrorCode());
-  ASSERT_TRUE(response.second.Success());
-
-  const auto a = response.first;
-  EXPECT_NE(a, nullptr);
+  const auto& quote = response.first;
+  EXPECT_NE(quote, nullptr);
 }
 
 TEST(Quote, AllFields)

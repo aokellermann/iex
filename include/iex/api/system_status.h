@@ -30,10 +30,12 @@ class SystemStatus : public Endpoint
  public:
   enum MemberType
   {
-    STATUS,
+    ENUM_FIRST,
+    STATUS = ENUM_FIRST,
     VERSION,
     TIMESTAMP,
-    CURRENT_MONTH_API_CALLS
+    CURRENT_MONTH_API_CALLS,
+    ENUM_LAST,
   };
 
  private:
@@ -44,7 +46,7 @@ class SystemStatus : public Endpoint
   using MemberTypename = typename MemberMap<T>::type;
 
  public:
-  explicit SystemStatus(json::JsonStorage data = json::JsonStorage{}) : Endpoint("status", std::move(data)) {}
+  explicit SystemStatus(json::JsonStorage data = json::JsonStorage{}) : Endpoint(std::move(data)) {}
 
   template <MemberType T>
   json::Member<MemberTypename<T>> Get() const noexcept

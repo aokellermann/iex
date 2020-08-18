@@ -15,14 +15,6 @@ An [AUR package](https://aur.archlinux.org/packages/iex-git/) is available:
 yay -S iex-git
 ```
 
-or you can use the `PKGBUILD` in this repository:
-
-```bash
-mkdir build && cd build
-wget https://raw.githubusercontent.com/aokellermann/iex/master/PKGBUILD
-makepkg -si
-```
-
 #### Other Linux
 
 ##### Dependencies
@@ -38,7 +30,7 @@ After dependencies are installed, run from a shell:
 git clone https://github.com/aokellermann/iex.git
 mkdir iex/build && cd iex/build
 cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr ..
-sudo make install
+sudo cmake --build . --target install
 ```
 Substitute `/usr` with your desired install location.
 
@@ -46,13 +38,12 @@ Substitute `/usr` with your desired install location.
 
 #### Build
 
-Include any necessary headers:
+Simply include the header `iex/iex.h`:
 ```c++
 #include <iex/iex.h>
-#include <iex/api/quote.h>
 ```
 
-This library is designed to be easily linkable using CMake with `iex::iex`:
+You can easily link using CMake:
 ```cmake
 target_link_libraries(target_name iex::iex)
 ```
@@ -83,117 +74,70 @@ There are several overloads of `iex::Get` that you can use to fetch API data.
 
 ##### Single Endpoint/Symbol
 
-The following is an example templated call to fetch $TSLA's realtime quote, and printing out the latest price:
-
+The following is an example call to fetch $TSLA realtime quote, and printing out the latest price:
 ```c++
-// Make sure to include the Quote header
-#include <iex/iex.h>  // for iex::Get()
-#include <iex/api/quote.h>  // for iex::Quote
-
-...
-
-// Declare types
-constexpr const iex::Endpoint::Type kQuoteType = iex::Endpoint::Type::QUOTE;
-using QuoteTypename = iex::EndpointTypename<kQuoteType>;
-using QuoteMemberType = QuoteTypename::MemberType;
-
-// GET from API
-auto quote_response = iex::Get<kQuoteType>(
-    iex::Symbol("tsla"),
-    iex::RequestOptions{{QuoteTypename::DisplayPercentOption()}, iex::Version::BETA, iex::DataType::SANDBOX});
-
-if (quote_response.second.Success())
+const auto quote = iex::Get<iex::Endpoint::Type::QUOTE>(iex::Symbol("tsla");
+if (response.second.Success())
 {
-  // GET successful
-  const auto& quote_endpoint = quote_response.first;
-    
-  // Read latest price data member
-  const auto quote_latest_price = quote_endpoint->Get<QuoteMemberType::LATEST_PRICE>();
-    
-  if (quote_latest_price.has_value())
-  {
-    // Latest price is available in data
-    std::cout << "Latest price: " << quote_latest_price.value() << std::endl;
-  }
-  else
-  {
-    // Latest price is not available in data
-    std::cout << "Latest price not available" << std::endl;
-  }
-}
-else
-{
-  // Failed to get data from API
-  std::cerr << quote_response.second << std::endl;
+    auto price = quote.first->Get<iex::Quote::MemberType::LATEST_PRICE>();
+    if (price.has_value())
+      std::cout << "TSLA realtime price: $" << price.value() << std::endl;
 }
 ```
 
-Notice in the `iex::Get` call, there are some options passed:
-* A collection of endpoint-specific `iex::Option`s (in this case `iex::Quote::DisplayPercentOption`)
+##### Single Endpoint Multiple Symbol
+
+The following is an example call to fetch $TSLA, $AMD, and $MSFT realtime quotes, and printing out the latest prices:
+```c++
+auto response = iex::Get<iex::Endpoint::Type::QUOTE>(
+      iex::SymbolSet{iex::Symbol("tsla"), iex::Symbol("amd"), iex::Symbol("msft")});
+if (response.second.Success())
+{
+  for (const auto& [symbol, quote] : response.first)
+  {
+    if (quote)
+    {
+      auto price = quote->Get<iex::Quote::MemberType::LATEST_PRICE>();
+      if (price.has_value())
+        std::cout << symbol.Get() << " realtime price: $" << price.value() << std::endl;
+    }
+  }
+}
+```
+
+##### Multiple Endpoint Multiple Symbol
+
+The following is an example call to fetch $TSLA, $AMD, and $MSFT realtime quotes and company information, and printing out the latest prices and company names:
+```c++
+auto response = iex::Get<iex::Endpoint::Type::QUOTE, iex::Endpoint::Type::COMPANY>(
+      iex::SymbolSet{iex::Symbol("tsla"), iex::Symbol("amd"), iex::Symbol("msft")});if (response.second.Success())
+{
+  for (const auto& [symbol, endpoints] : response.first)
+  {
+    auto& [quote, company] = endpoints;
+    if (quote && company)
+    {
+      auto price = quote->Get<iex::Quote::MemberType::LATEST_PRICE>();
+      auto name = company->Get<iex::Company::MemberType::COMPANY_NAME>();
+      if (price.has_value() && name.has_value())
+        std::cout << name.value() << " realtime price: $" << price.value() << std::endl;
+    }
+  }
+}
+```
+
+Notice in the `iex::Get` calls, there is an optional parameter:
+* A collection of endpoint-specific `iex::Option`s
 * API Version (defaults to `STABLE`)
 * DataType (defaults to `AUTHENTIC`)
     * `AUTHENTIC`: genuine data that counts towards your used credits
     * `SANDBOX`: ingenuine data that doesn't count towards your used credits (usually used for testing)
     
-If you want to use default options, you can do this instead:
+The above examples all use default options. Below is a call to the Beta version of IEX's Sandbox API, with the Quote DisplayPercentOption:
 ```c++
-auto quote_response = iex::Get<kQuoteType>(iex::Symbol("tsla"));
-```
-
-##### Multiple Endpoints/Symbols
-
-Fetching data from multiple endpoints and symbols can be done efficiently, internally performing only one HTTP GET (as long as they are using the same `Version` and `DataType`).
-
-The following is an example single-GET call to fetch $TSLA and $AAPL's realtime quotes and company information.
-
-```c++
-// Make sure to include the Quote/Company headers
-#include <iex/iex.h>  // for iex::Get()
-#include <iex/api/quote.h>  // for iex::Quote
-#include <iex/api/company.h>  // for iex::Company
-
-...
-
-// Target Symbols, Endpoints, and options 
-iex::Symbol tesla_symbol("tsla");
-iex::Symbol apple_symbol("aapl");
-constexpr const auto kQuoteType = iex::Endpoint::Type::QUOTE;
-constexpr const auto kCompanyType = iex::Endpoint::Type::COMPANY;
-const auto tesla_opts =
-    iex::RequestOptions{iex::Endpoint::Options{iex::Quote::DisplayPercentOption()}, {}, iex::DataType::SANDBOX};
-const auto apple_opts = iex::RequestOptions{iex::Endpoint::Options{}, {}, iex::DataType::SANDBOX};
-
-// Build request object
-iex::SymbolRequests sreqs;
-iex::Requests reqs = iex::Requests{{kQuoteType, tesla_opts}, {kCompanyType, apple_opts}};
-sreqs.emplace(tesla_symbol, reqs);
-sreqs.emplace(apple_symbol, reqs);
-
-// Perform GET
-const auto response = iex::Get(sreqs);
-if (response.second.Failure())
-{
-  std::cout << response.second << std::endl;
-}
-
-for (const auto& symbol : {tesla_symbol, apple_symbol})
-{
-  const auto& symbol_response = response.first.Get(symbol);
-  if (symbol_response)
-  {
-    const auto& quote = symbol_response->Get<kQuoteType>(tesla_opts);
-    const auto& company = symbol_response->Get<kCompanyType>(apple_opts);
-    if (quote && company)
-    {
-      const auto latest_price = quote->Get<iex::EndpointTypename<kQuoteType>::MemberType::LATEST_PRICE>();
-      const auto company_name = company->Get<iex::EndpointTypename<kCompanyType>::MemberType::COMPANY_NAME>();
-      if (latest_price && company_name)
-      {
-        std::cout << *company_name << " real-time price: " << *latest_price << std::endl;
-      }
-    }
-  }
-}
+iex::Endpoint::OptionsObject options{
+      {iex::Quote::DisplayPercentOption()}, iex::Version::BETA, iex::DataType::SANDBOX};
+  auto response = iex::Get<iex::Endpoint::Type::QUOTE>(iex::Symbol("tsla"), options);
 ```
 
 ### Contributing
