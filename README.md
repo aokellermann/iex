@@ -4,13 +4,18 @@
 iex is a WIP C++17 library for querying [IEX Cloud](https://iexcloud.io/), a financial data REST API.
 
 ### Install
-Please note that this library is only designed to be built on Linux, and has only been tested with GCC 10.1 and Clang 10.0. 
+Please note that this library is only designed to be built on Linux, and has only been tested with GCC 10.1 and Clang 10.0.
+
 #### Arch Linux Package
-Arch Linux users may install with the included `PKGBUILD`:
+
+Arch Linux users may install from the AUR:
 ```bash
-mkdir build && cd build
-wget https://raw.githubusercontent.com/aokellermann/iex/master/PKGBUILD
+git clone https://aur.archlinux.org/iex-git.git && cd iex-git
 makepkg -si
+```
+Or by using an AUR helper:
+```bash
+yay -S iex-git
 ```
 
 #### Manual Build
@@ -42,6 +47,7 @@ target_link_libraries(target_name iex::iex)
 ```
 
 ### Contributing
+
 See [contributing guidelines](.github/CONTRIBUTING.md).
 
 ### Projects
