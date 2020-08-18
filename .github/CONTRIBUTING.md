@@ -15,7 +15,7 @@ C++ code in this repository follows [Google C++ Style](https://google.github.io/
 When in doubt, follow conventions in preexisting code.
 
 You can automatically format your code with:
- ```bash
+```bash
 bash scripts/format.sh
 ```
 
@@ -32,9 +32,8 @@ The project's `CMakeLists.txt` supports the following options:
 To perform a weed whack build, run:
 ```bash
 mkdir build && cd build
-cmake -DCMAKE_BUILD_TYPE=Debug -IEX_BUILD_WARNINGS:BOOL=ON -IEX_BUILD_TESTING:BOOL=ON -IEX_BUILD_DOCUMENTATION:BOOL=ON -IEX_TIDY:BOOL=ON ..
-cd ..
-cmake --build build/
+cmake -DCMAKE_BUILD_TYPE=Debug -DIEX_BUILD_TESTS=ON -DIEX_BUILD_WARNINGS=ON -DIEX_TIDY=ON ..
+cmake --build .
 ```
 After, you can run unit tests:
 ```bash
