@@ -1,10 +1,5 @@
 # CLion
 .idea/
 
-# CMake build directories
-cmake-build-debug/
-cmake-build-release/
-build/
-
-# Contains private API keys
-Dockerfile
+# Build directories
+*build*/

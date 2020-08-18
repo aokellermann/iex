@@ -23,7 +23,7 @@ static const bool kCI = std::getenv("CI") != nullptr;
 // Sleeping between API calls seems to help pass tests... CI requires longer sleeps.
 void Sleep() { std::this_thread::sleep_for(std::chrono::milliseconds(kCI ? 100 : 50)); }
 
-#ifdef IEX_ENABLE_STRESS_TESTS
+#ifdef IEX_BUILD_STRESS_TESTS
 template <iex::Endpoint::Type Type>
 const auto kBasicGetFunc = [](const iex::Endpoint::OptionsObject& options,
                               std::mutex& mutex,
