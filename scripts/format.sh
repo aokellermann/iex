@@ -1,6 +1,6 @@
 #!/bin/bash
 
-files=$(find src include tests -type f \( -iname \*.cc -o -iname \*.h \))
+files=$(find lib include tests -type f \( -iname \*.cc -o -iname \*.h \))
 
 if [[ $1 == "check" ]]; then
   # Dry run
