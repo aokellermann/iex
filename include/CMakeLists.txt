@@ -1,6 +1,4 @@
-set(iex_header
-        iex/iex.h
-        )
+set(iex_header iex/iex.h)
 set(iex_detail_paths iex/api iex/detail)
 
 # Install headers

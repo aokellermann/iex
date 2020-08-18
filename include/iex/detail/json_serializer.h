@@ -10,7 +10,7 @@
 #include <stdexcept>
 #include <type_traits>
 
-#include "common.h"
+#include "iex/detail/common.h"
 
 /**
  * Contains abstract interfaces used for converting to and from JSON format.

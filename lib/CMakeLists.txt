@@ -28,14 +28,14 @@ if (IEX_BUILD_WARNINGS)
 endif ()
 
 # Set include dirs
-target_include_directories(${PROJECT_NAME} PUBLIC
+target_include_directories(${IEX_LIBRARY} PUBLIC
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
         )
 
 # Install shared object
 set(iex_targets_file "${PROJECT_NAME}Targets")
-install(TARGETS ${PROJECT_NAME}
+install(TARGETS ${IEX_LIBRARY}
         EXPORT ${iex_targets_file}
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT runtime
@@ -47,7 +47,7 @@ set(iex_cmake_dir "${CMAKE_SOURCE_DIR}/cmake")
 set(iex_export_file "${iex_targets_file}.cmake")
 set(cmake_install_dir "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
 
-export(TARGETS ${PROJECT_NAME}
+export(TARGETS ${IEX_LIBRARY}
         NAMESPACE ${PROJECT_NAME}::
         APPEND FILE ${iex_export_file}
         )
