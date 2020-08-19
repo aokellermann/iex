@@ -13,8 +13,6 @@
 
 #include "iex/iex.h"
 
-
-
 int main(int argc, char** argv)
 {
   iex::Keys keys;
