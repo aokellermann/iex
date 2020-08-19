@@ -199,35 +199,28 @@ class Endpoint : public json::JsonBidirectionalSerializable
   /**
    * Used to generate Url Params.
    */
-  class OptionBase
+  struct OptionBase
   {
-   public:
-    OptionBase(std::string name, std::string value) : pair_(std::make_pair(std::move(name), std::move(value))) {}
-
-    virtual ~OptionBase() = default;
-
-    [[nodiscard]] virtual std::string GetName() const noexcept { return pair_.first; }
-
-    [[nodiscard]] virtual std::string GetValue() const noexcept { return pair_.second; }
-
-   private:
-    NamedPair<std::string> pair_;
+    [[nodiscard]] virtual std::string KeyString() const = 0;
+    [[nodiscard]] virtual std::string ValueString() const = 0;
   };
 
   template <typename T>
-  class Option : public OptionBase
+  class Option : private KVP<T>, public OptionBase
   {
    public:
-    Option(const std::string& name, const T& value) : OptionBase(name, GetValueAsString(value)) {}
-
+    using OptionType = KVP<T>;
+    using OptionType::KVP;
+    using OptionType::operator=;
     ~Option() override = default;
 
-   private:
-    [[nodiscard]] static std::string GetValueAsString(const T& value)
+    [[nodiscard]] std::string KeyString() const override { return this->key; }
+
+    [[nodiscard]] std::string ValueString() const override
     {
       std::stringstream sstr;
-      sstr << std::boolalpha << value;  // Use std::boolalpha to print bools as true/false rather than 1/0
-      return sstr.str();
+      sstr << std::boolalpha << this->value;  // Use std::boolalpha to print bools as true/false rather than 1/0
+      return this->key + sstr.str();
     }
   };
 
@@ -254,9 +247,9 @@ class Endpoint : public json::JsonBidirectionalSerializable
 
   // region Json
 
-  [[nodiscard]] ValueWithErrorCode<json::Json> Serialize() const override { return data_.Serialize(); }
+  [[nodiscard]] json::Json Serialize() const override { return data_.Serialize(); }
 
-  ErrorCode Deserialize(const json::Json& input_json) override { return data_.Deserialize(input_json); }
+  void Deserialize(const json::Json& input_json) override { return data_.Deserialize(input_json); }
 
   // endregion Json
 
@@ -485,125 +478,80 @@ namespace detail
 {
 // region Curl
 
-ValueWithErrorCode<curl::GetMap> PerformCurl(const curl::Url& url);
+json::Json PerformCurl(const curl::Url& url);
 
 template <Endpoint::Type Type>
-ValueWithErrorCode<BasicEndpointPtr<Type>> Get(const Endpoint::OptionsObject& options)
+BasicEndpointPtr<Type> Get(const Endpoint::OptionsObject& options)
 {
   const auto url = GetUrl<Type>(options);
-  auto vec = PerformCurl(url);
-  if (vec.second.Failure())
-  {
-    return {{}, std::move(vec.second)};
-  }
-
-  try
-  {
-    auto json = vec.first[url].first;
-    return {EndpointFactory<Type>(json), {}};
-  }
-  catch (const std::exception& e)
-  {
-    return {{}, ErrorCode("Get() failed", ErrorCode(e.what()))};
-  }
+  auto json = PerformCurl(url);
+  if (json.is_null()) return nullptr;
+  return EndpointFactory<Type>(json);
 }
 
 template <Endpoint::Type... Types>
 auto Get(const SymbolSet& symbols, const Endpoint::OptionsObject& options)
 {
-  ErrorCode ec;
-
   if constexpr (IsPlural<Types...>::value)
   {
-    using return_type = ValueWithErrorCode<SymbolMap<StockEndpointTuple<Types...>>>;
+    using return_type = SymbolMap<StockEndpointTuple<Types...>>;
 
     const auto url = GetUrl<Types...>(symbols, options);
-    auto vec = PerformCurl(url);
-    if (vec.second.Failure())
-    {
-      return return_type{{}, std::move(vec.second)};
-    }
+    const auto json = PerformCurl(url);
+    if (json.is_null()) return return_type();
 
-    SymbolMap<StockEndpointTuple<Types...>> map;
+    return_type map;
     try
     {
-      const auto& json = vec.first[url].first;
       map.reserve(symbols.size());
       for (const auto& symbol : symbols)
       {
-        const auto symbol_iter = json.find(symbol.Get());
-        if (symbol_iter != json.end())
+        if (const auto symbol_iter = json.find(symbol.Get()); symbol_iter != json.end())
         {
-          const auto endpoint_iter =
-              map.emplace(symbol,
-                          std::make_tuple((
-                              symbol_iter->find(EndpointTypedefMap<Types>::kPath) != symbol_iter->end()
-                                  ? EndpointFactory<Types>(*symbol_iter->find(EndpointTypedefMap<Types>::kPath), symbol)
-                                  : nullptr)...))
-                  .first;
-          std::apply(
-              [&ec](auto&&... args) {
-                ((ec = args == nullptr ? ErrorCode("Get() failed", ErrorCode("no symbol in json")) : ec), ...);
-              },
-              endpoint_iter->second);
-        }
-        else
-        {
-          ec = ErrorCode("Get() failed", ErrorCode("no symbol in json"));
+          map.emplace(symbol,
+                      std::make_tuple(
+                          (symbol_iter->find(EndpointTypedefMap<Types>::kPath) != symbol_iter->end()
+                               ? EndpointFactory<Types>(*symbol_iter->find(EndpointTypedefMap<Types>::kPath), symbol)
+                               : nullptr)...));
         }
       }
     }
-    catch (const std::exception& e)
+    catch (...)
     {
-      ec = ErrorCode("Get() failed", ErrorCode(e.what()));
     }
 
-    return return_type{std::move(map), std::move(ec)};
+    return map;
   }
   else
   {
     constexpr Endpoint::Type kType = std::get<0>(std::make_tuple(Types...));
-    using return_type = ValueWithErrorCode<SymbolMap<StockEndpointPtr<kType>>>;
+    using return_type = SymbolMap<StockEndpointPtr<kType>>;
 
     const auto url = GetUrl<kType>(symbols, options);
-    auto vec = PerformCurl(url);
-    if (vec.second.Failure())
-    {
-      return return_type{{}, std::move(vec.second)};
-    }
+    const auto json = PerformCurl(url);
+    if (json.is_null()) return return_type();
 
-    SymbolMap<StockEndpointPtr<kType>> map;
+    return_type map;
     try
     {
-      const auto& json = vec.first[url].first;
       map.reserve(symbols.size());
       for (const auto& symbol : symbols)
       {
-        const auto symbol_iter = json.find(symbol.Get());
-        if (symbol_iter != json.end())
+        if (const auto symbol_iter = json.find(symbol.Get()); symbol_iter != json.end())
         {
-          const auto endpoint_iter = symbol_iter->find(EndpointTypedefMap<kType>::kPath);
-          if (endpoint_iter != symbol_iter->end())
+          if (const auto endpoint_iter = symbol_iter->find(EndpointTypedefMap<kType>::kPath);
+              endpoint_iter != symbol_iter->end())
           {
             map.emplace(symbol, EndpointFactory<kType>(*endpoint_iter, symbol));
           }
-          else
-          {
-            ec = ErrorCode("Get() failed", ErrorCode("no endpoint in json"));
-          }
-        }
-        else
-        {
-          ec = ErrorCode("Get() failed", ErrorCode("no symbol in json"));
         }
       }
     }
-    catch (const std::exception& e)
+    catch (...)
     {
-      ec = ErrorCode("Get() failed", ErrorCode(e.what()));
     }
 
-    return return_type{std::move(map), std::move(ec)};
+    return map;
   }
 }
 // endregion Curl
@@ -631,11 +579,10 @@ ErrorCode Init(Keys keys);
 template <Endpoint::Type... Types>
 auto Get(const Symbol& symbol, const Endpoint::OptionsObject& options = {})
 {
-  auto [map, ec] = detail::Get<Types...>({symbol}, options);
+  auto map = detail::Get<Types...>({symbol}, options);
   auto node = map.extract(symbol);
   using return_value_type = typename decltype(node)::mapped_type;
-  return ValueWithErrorCode<return_value_type>{
-      !node.empty() ? return_value_type{std::move(node.mapped())} : return_value_type{}, std::move(ec)};
+  return return_value_type{!node.empty() ? return_value_type{std::move(node.mapped())} : return_value_type{}};
 }
 
 /**

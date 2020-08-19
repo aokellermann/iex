@@ -7,10 +7,7 @@
 #pragma once
 
 #include <nlohmann/json.hpp>
-#include <stdexcept>
-#include <type_traits>
-
-#include "iex/detail/common.h"
+#include <optional>
 
 /**
  * Contains abstract interfaces used for converting to and from JSON format.
@@ -37,7 +34,7 @@ class JsonSerializable
    * Creates and returns a Json object representing this object. This function must be overridden.
    * @return Json
    */
-  [[nodiscard]] virtual ValueWithErrorCode<Json> Serialize() const = 0;
+  [[nodiscard]] virtual Json Serialize() const = 0;
 };
 
 /**
@@ -53,7 +50,7 @@ class JsonDeserializable
    * Stores data from input_json in this object. This function must be overridden.
    * @return ErrorCode if failure
    */
-  virtual ErrorCode Deserialize(const Json& input_json) = 0;
+  virtual void Deserialize(const Json& input_json) = 0;
 };
 
 /**
@@ -70,13 +67,9 @@ class JsonStorage : public JsonBidirectionalSerializable
  public:
   explicit JsonStorage(const json::Json& json = {}) { Deserialize(json); }
 
-  [[nodiscard]] ValueWithErrorCode<Json> Serialize() const final { return {json_, {}}; }
+  [[nodiscard]] Json Serialize() const final { return json_; }
 
-  ErrorCode Deserialize(const Json& input_json) final
-  {
-    json_ = input_json;
-    return {};
-  }
+  void Deserialize(const Json& input_json) final { json_ = input_json; }
 
   template <typename T>
   static Member<T> SafeGetMember(const Json& json, const MemberName& member_name) noexcept
@@ -91,7 +84,7 @@ class JsonStorage : public JsonBidirectionalSerializable
 
       return GetMember<T>(ref);
     }
-    catch (const std::exception& e)
+    catch (...)
     {
       return std::nullopt;
     }
