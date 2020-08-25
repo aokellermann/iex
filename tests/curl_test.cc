@@ -72,7 +72,7 @@ TEST_P(Url, Encoding)
   }
 }
 
-INSTANTIATE_TEST_CASE_P(Correctness,
+INSTANTIATE_TEST_SUITE_P(Correctness,
                         Url,
                         testing::Values(UrlInitParams{"", nullptr, false},
                                         UrlInitParams{"", &kEmptyParams, false},
