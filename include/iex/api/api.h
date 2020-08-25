@@ -81,8 +81,6 @@ class Symbol
 
   explicit Symbol(std::string sym);
 
-  void Set(std::string sym);
-
   [[nodiscard]] const std::string& Get() const noexcept { return impl_; }
 
   inline bool operator==(const Symbol& other) const { return Get() == other.Get(); }

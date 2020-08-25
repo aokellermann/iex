@@ -82,8 +82,6 @@ ErrorCode InnerInit()
 
 Symbol::Symbol(std::string sym) : impl_(std::move(utils::ToUpper(sym))) {}
 
-void Symbol::Set(std::string sym) { impl_ = std::move(utils::ToUpper(sym)); }
-
 // endregion Symbol
 
 // region Curl
