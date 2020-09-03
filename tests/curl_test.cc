@@ -73,16 +73,16 @@ TEST_P(Url, Encoding)
 }
 
 INSTANTIATE_TEST_SUITE_P(Correctness,
-                        Url,
-                        testing::Values(UrlInitParams{"", nullptr, false},
-                                        UrlInitParams{"", &kEmptyParams, false},
-                                        UrlInitParams{"", &kValidParams, false},
-                                        UrlInitParams{"base", &kInvalidName, false},
-                                        UrlInitParams{"base", &kInvalidValue, false},
-                                        UrlInitParams{"base", nullptr, true, "base"},
-                                        UrlInitParams{"base", &kEmptyParams, true, "base"},
-                                        UrlInitParams{"base", &kValidParams, true, "base?foo1=bar1&foo2=bar2"},
-                                        UrlInitParams{"base", &kEncodeParams, true, "base?foo1=bar1&foo2=bar%2B"}));
+                         Url,
+                         testing::Values(UrlInitParams{"", nullptr, false},
+                                         UrlInitParams{"", &kEmptyParams, false},
+                                         UrlInitParams{"", &kValidParams, false},
+                                         UrlInitParams{"base", &kInvalidName, false},
+                                         UrlInitParams{"base", &kInvalidValue, false},
+                                         UrlInitParams{"base", nullptr, true, "base"},
+                                         UrlInitParams{"base", &kEmptyParams, true, "base"},
+                                         UrlInitParams{"base", &kValidParams, true, "base?foo1=bar1&foo2=bar2"},
+                                         UrlInitParams{"base", &kEncodeParams, true, "base?foo1=bar1&foo2=bar%2B"}));
 
 TEST(Curl, Single)
 {
