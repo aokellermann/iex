@@ -12,10 +12,7 @@ static const iex::Endpoint::OptionsObject kOptions{{}, {}, iex::DataType::SANDBO
 
 TEST(Company, Get)
 {
-  const auto response = iex::Get<iex::Endpoint::Type::COMPANY>(iex::Symbol("tsla"), kOptions);
-  ASSERT_EQ(response.second, iex::ErrorCode());
-
-  const auto& company = response.first;
+  const auto company = iex::Get<iex::Endpoint::Type::COMPANY>(iex::Symbol("tsla"), kOptions);
   EXPECT_NE(company, nullptr);
 }
 

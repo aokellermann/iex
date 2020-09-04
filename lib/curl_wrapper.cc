@@ -22,8 +22,6 @@ namespace iex::curl
 {
 namespace
 {
-namespace detail
-{
 // region Helpers
 
 /**
@@ -89,32 +87,28 @@ class EasyHandleDataPair : public std::pair<EasyHandle, std::string>
     AssignHandleUrlOptions();
   }
 
-  ValueWithErrorCode<Json> ExtractData()
+  Json ExtractData()
   {
-    if (second.empty())
-    {
-      return {{}, ErrorCode{"Empty return data"}};
-    }
-
     Json json;
+    if (second.empty()) return json;
+
     try
     {
       json = Json::parse(second);
     }
-    catch (const std::exception& e)
+    catch (...)
     {
-      return {{}, ErrorCode("Failed to parse return data", {{"ex", ErrorCode(e.what())}, {"data", ErrorCode(second)}})};
     }
 
     second.clear();
-    return {std::move(json), {}};
+    return json;
   }
 
  private:
   void AssignHandleUrlOptions()
   {
     // Set Url
-    curl_easy_setopt(first.handle_, CURLOPT_URL, url_.GetAsString().c_str());
+    curl_easy_setopt(first.handle_, CURLOPT_URL, std::string(url_).c_str());
     // Store pointer to associated Url.
     curl_easy_setopt(first.handle_, CURLOPT_PRIVATE, &url_);
   }
@@ -145,7 +139,7 @@ class MultiHandleWrapper
    * @param max_connections maximum number of parallel connections
    * @return map of Url to returned Json data (with ErrorCode if encountered)
    */
-  GetMap Get(const UrlSet& url_set, int max_connections, const RetryBehavior& retry_behavior)
+  UrlJsonMap Get(const UrlSet& url_set, int max_connections, const RetryBehavior& retry_behavior)
   {
     // Populate handles_in_use_.
     GetAvailableHandles(url_set);
@@ -156,9 +150,6 @@ class MultiHandleWrapper
     CURLMsg* msg;
     int msgs_left = -1;
     int still_alive = 1;
-
-    // Contains information about failed GETs.
-    UrlMap<ErrorCode> ecs;
 
     // Contains number of retries per url.
     UrlMap<int> retries;
@@ -179,7 +170,10 @@ class MultiHandleWrapper
           bool do_retry = false;
           const bool retry_allowed = retry_behavior.max_retries > retries[*url];
 
-          if (result != CURLE_OK)
+          auto& handle = *handles_in_use_.find(*url);
+
+          // If GET fails or if return data is empty, decide whether to retry
+          if (result != CURLE_OK || handle.second.second.empty())
           {
             HttpResponseCode http_code = 0;
             if (result == CURLE_HTTP_RETURNED_ERROR)
@@ -187,41 +181,18 @@ class MultiHandleWrapper
               curl_easy_getinfo(done_handle, CURLINFO_RESPONSE_CODE, &http_code);
             }
 
-            // Check if request should be retried. Otherwise, emplace ec.
-            if (retry_allowed && retry_behavior.responses_to_retry.count(http_code))
-            {
-              do_retry = true;
-            }
-            else
-            {
-              ErrorCode ec = http_code == 0 ? ErrorCode(curl_easy_strerror(result))
-                                            : ErrorCode(curl_easy_strerror(result),
-                                                        {{"response code", ErrorCode(std::to_string(http_code))},
-                                                         {"retries", ErrorCode(std::to_string(retries[*url]))}});
-              ecs.emplace(*url, std::move(ec));
-            }
-          }
-          else if (handles_in_use_.find(*url)->second.second.empty())
-          {
-            // If successful curl, empty response data, and retry behavior is specified, retry.
-            if (retry_allowed && retry_behavior.retry_if_empty_response_data)
-            {
-              do_retry = true;
-            }
-            else
-            {
-              ErrorCode ec = ErrorCode("Empty return data", {"retries", ErrorCode(std::to_string(retries[*url]))});
-              ecs.emplace(*url, std::move(ec));
-            }
+            // Perform retry if retry behavior allows
+            do_retry = retry_allowed && (static_cast<bool>(retry_behavior.responses_to_retry.count(http_code)) ||
+                                         (handle.second.second.empty() && retry_behavior.retry_if_empty_response_data));
           }
 
           // Always remove handle after complete request
           curl_multi_remove_handle(multi_handle_.handle_, done_handle);
 
-          if (retry_allowed && do_retry)
+          if (do_retry)
           {
             // Clear data and increment retries
-            handles_in_use_.find(*url)->second.second.clear();
+            handle.second.second.clear();
             ++retries[*url];
 
             // Sleep before retrying
@@ -239,18 +210,11 @@ class MultiHandleWrapper
       }
     }
 
-    GetMap return_data;
-    for (auto& handle : handles_in_use_)
+    UrlJsonMap return_data;
+    for (auto& [url, handle] : handles_in_use_)
     {
-      auto ec_iter = ecs.find(handle.first);
-      ErrorCode ec = ec_iter == ecs.end() ? ErrorCode() : ec_iter->second;
-      auto data = handle.second.ExtractData();
-      if (ec.Success() && data.second.Failure())
-      {
-        ec = std::move(data.second);
-      }
-
-      return_data.insert(std::make_pair(handle.first, std::make_pair(std::move(data.first), std::move(ec))));
+      auto data = handle.ExtractData();
+      if (!data.is_null()) return_data.insert(std::make_pair(url, std::move(data)));
     }
 
     ClearUsedHandles();
@@ -263,7 +227,7 @@ class MultiHandleWrapper
    * Populates handles_in_use_ with valid Url-assigned handles.
    * @param url_set the Urls for which handles are requirded
    */
-  void GetAvailableHandles(const std::unordered_set<Url, UrlHasher, UrlEquality>& url_set)
+  void GetAvailableHandles(const UrlSet& url_set)
   {
     // Try to find handles with the same Url first.
     for (const auto& url : url_set)
@@ -384,73 +348,31 @@ const ErrorCode& InitIfNeeded()
 }
 
 // endregion Interface
-}  // namespace detail
 
-// region Interface
+// region Url
 
-const ErrorCode& InitIfNeeded() { return detail::InitIfNeeded(); }
+constexpr const char* const kInvalidUrlErrorMessages[] = {
+    "Empty Url",
+    "Empty Param key",
+    "Empty Param value",
+    "Empty Param list value",
+};
 
-GetMap PerformGet(const std::unordered_set<Url, UrlHasher, UrlEquality>& url_set,
-                  int max_connections,
-                  const RetryBehavior& retry_behavior)
-{
-  if (!detail::local_multi_handle)
-  {
-    detail::local_multi_handle = std::make_unique<detail::MultiHandleWrapper>();
-  }
-
-  return detail::local_multi_handle->Get(url_set, max_connections, retry_behavior);
-}
-
-ValueWithErrorCode<std::string> GetEscapedUrlStringFromPlaintextString(const std::string& plaintext_url_string)
-{
-  // Curl must be initialized before using escape function!
-  const ErrorCode& init_ec = InitIfNeeded();
-  if (init_ec.Failure())
-  {
-    return {std::string(), init_ec};
-  }
-
-  char* escaped_c_string =
-      curl_easy_escape(detail::curl_escape_handle->handle_, plaintext_url_string.c_str(), plaintext_url_string.size());
-  std::string escaped_string(escaped_c_string);
-  curl_free(escaped_c_string);
-
-  // CURL documentation states that a null or empty return value from curl_easy_escape indicates failure.
-  if (escaped_string.empty())
-  {
-    return {std::string(), ErrorCode("curl_easy_escape() failed")};
-  }
-
-  return {escaped_string, ErrorCode()};
-}
-
-// endregion Interface
+// endregion
 }  // namespace
 
 // region Url
 
-ValueWithErrorCode<std::string> Url::UrlEncode(const std::string& plaintext_str)
+InvalidUrlError::InvalidUrlError(ErrorID error_id) : ErrorCode(kInvalidUrlErrorMessages[error_id]), id(error_id) {}
+
+Url::Param::ValueType Url::Param::Escape(const Param::ValueType& v)
 {
-  return GetEscapedUrlStringFromPlaintextString(plaintext_str);
-}
-
-void Url::AppendParam(const Param& param, bool first)
-{
-  if (param.name.empty() || param.value.empty())
-  {
-    ec_ = ErrorCode(param.name.empty() ? "name is empty" : "value is empty");
-    return;
-  }
-
-  const auto pair = UrlEncode(param.value);
-  if (pair.second.Failure())
-  {
-    ec_ = pair.second;
-    return;
-  }
-
-  impl_ += (first ? "?" : "&") + param.name + "=" + pair.first;
+  // CURL documentation states that a null or empty return value from curl_easy_escape indicates failure.
+  char* escaped_c_string = curl_easy_escape(curl_escape_handle->handle_, v.c_str(), v.size());
+  if (!escaped_c_string) return std::string();
+  std::string escaped_string(escaped_c_string);
+  curl_free(escaped_c_string);
+  return escaped_string;
 }
 
 // endregion Url
@@ -459,44 +381,14 @@ void Url::AppendParam(const Param& param, bool first)
 
 ErrorCode Init() { return InitIfNeeded(); }
 
-ValueWithErrorCode<GetMap> Get(const std::unordered_set<Url, UrlHasher, UrlEquality>& url_set,
-                               int max_connections,
-                               const RetryBehavior& retry_behavior)
+UrlJsonMap Get(const UrlSet& url_set, int max_connections, const RetryBehavior& retry_behavior)
 {
-  // Check if CURL initialization previously succeeded (it is typically initialized on Url construction).
-  const auto& init_ec = InitIfNeeded();
-  if (init_ec.Failure())
+  if (!local_multi_handle)
   {
-    return {GetMap(), ErrorCode("curl::Get failed", init_ec)};
+    local_multi_handle = std::make_unique<MultiHandleWrapper>();
   }
 
-  // Check for invalid Urls.
-  for (const auto& url : url_set)
-  {
-    if (url.Validity().Failure())
-    {
-      return {GetMap(), ErrorCode(std::string("curl::Get failed"),
-                                  ErrorCode(std::string("at least one Url is invalid"), url.Validity()))};
-    }
-  }
-
-  // Perform GET.
-  auto data_map = PerformGet(url_set, max_connections, retry_behavior);
-
-  // Generate ErrorCode if any GETs failed.
-  std::vector<ErrorCode> named_errors;
-  for (const auto& [url, pair] : data_map)
-  {
-    if (pair.second.Failure())
-    {
-      named_errors.emplace_back(
-          ErrorCode("HTTP GET failed", {{"url", ErrorCode(url.GetAsString())}, {"ec", pair.second}}));
-    }
-  }
-
-  ErrorCode ec =
-      named_errors.empty() ? ErrorCode() : ErrorCode("curl::Get failed", named_errors.begin(), named_errors.end());
-  return {data_map, ec};
+  return local_multi_handle->Get(url_set, max_connections, retry_behavior);
 }
 
 // endregion Interface
