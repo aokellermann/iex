@@ -136,7 +136,7 @@ TEST(Quote, AllFields)
   EXPECT_TRUE(quote.Get<MemberType::IS_US_MARKET_OPEN>().has_value());
 }
 
-TEST(Quote, Option)
+TEST(Quote, DisplayPercentOption)
 {
   iex::Endpoint::OptionsObject options = kOptions;
   options.options = {iex::Quote::DisplayPercentOption()};
