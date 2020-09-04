@@ -9,6 +9,7 @@
 #include <mutex>
 #include <thread>
 
+#include "iex/detail/common.h"
 #include "iex/detail/curl_wrapper.h"
 #include "iex/detail/json_serializer.h"
 #include "iex/detail/utils.h"
@@ -53,10 +54,9 @@ Key GetKey(const DataType type)
 
 void AppendParams(Params& params, const Endpoint::Options& options)
 {
-  params.reserve(params.size() + options.size());
   for (const auto& opt : options)
   {
-    params.insert(Param(opt.GetName(), {opt.GetValue()}));
+    params.insert(Param(opt.KeyString(), opt.ValueString()));
   }
 }
 
@@ -72,7 +72,7 @@ ErrorCode InnerInit()
     return ErrorCode("iex::Init failed", std::move(ec));
   }
 
-  return {};
+  return ErrorCode::kSuccess;
 }
 
 // endregion Init
@@ -81,8 +81,6 @@ ErrorCode InnerInit()
 // region Symbol
 
 Symbol::Symbol(std::string sym) : impl_(std::move(utils::ToUpper(sym))) {}
-
-void Symbol::Set(std::string sym) { impl_ = std::move(utils::ToUpper(sym)); }
 
 // endregion Symbol
 
@@ -131,13 +129,13 @@ Url GetUrl(const std::unordered_set<std::string>& endpoint_names, const SymbolSe
  * @param urls UrlSet
  * @return GetMap
  */
-ValueWithErrorCode<curl::GetMap> PerformCurl(const curl::Url& url)
+json::Json PerformCurl(const curl::Url& url)
 {
   std::lock_guard lock(api_call_mutex);
   auto now = std::chrono::high_resolution_clock::now();
   const auto time_since_last_call = now - last_call_ts;
   std::this_thread::sleep_for(kIexRequestLimitTimeout - time_since_last_call);
-  auto response = curl::Get(curl::UrlSet{url}, 0, kDefaultRetryBehavior);
+  auto response = curl::Get(url, 0, kDefaultRetryBehavior);
   last_call_ts = std::move(now);
   return response;
 }

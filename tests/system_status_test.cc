@@ -10,10 +10,7 @@
 
 TEST(SystemStatus, Get)
 {
-  const auto response = iex::Get<iex::Endpoint::Type::SYSTEM_STATUS>();
-  ASSERT_EQ(response.second, iex::ErrorCode());
-
-  const auto& status = response.first;
+  const auto status = iex::Get<iex::Endpoint::Type::SYSTEM_STATUS>();
   ASSERT_NE(status, nullptr);
 
   EXPECT_EQ(status->Get<iex::SystemStatus::MemberType::STATUS>().value(), "up")

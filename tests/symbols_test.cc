@@ -18,10 +18,7 @@ static const iex::Endpoint::OptionsObject kOptions{{}, {}, iex::DataType::SANDBO
 
 TEST(Symbols, Get)
 {
-  auto response = iex::Get<iex::Endpoint::Type::SYMBOLS>(kOptions);
-  ASSERT_EQ(response.second, iex::ErrorCode());
-
-  const auto& symbols = response.first;
+  auto symbols = iex::Get<iex::Endpoint::Type::SYMBOLS>(kOptions);
   ASSERT_NE(symbols, nullptr);
 
   for (const auto& sym : kSymbols)

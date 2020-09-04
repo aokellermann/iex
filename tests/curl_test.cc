@@ -9,23 +9,32 @@
 #include <initializer_list>
 #include <thread>
 
+#include "iex/detail/common.h"
 #include "iex/detail/curl_wrapper.h"
 
 namespace curl = iex::curl;
 
-const std::initializer_list<curl::Url::Param> kEmptyParams = {};
-const std::initializer_list<curl::Url::Param> kInvalidName = {{"foo1", "bar1"}, {"", "bar2"}};
-const std::initializer_list<curl::Url::Param> kInvalidValue = {{"foo1", "bar1"}, {"foo2", ""}};
-const std::initializer_list<curl::Url::Param> kValidParams = {{"foo1", "bar1"}, {"foo2", "bar2"}};
-const std::initializer_list<curl::Url::Param> kValidParams2 = {{"foo3", "bar3"}, {"foo4", "bar4"}};
-const std::initializer_list<curl::Url::Param> kEncodeParams = {{"foo1", "bar1"}, {"foo2", "bar+"}};
+using ParamInit = std::vector<iex::KVP<std::string>>;
+const ParamInit kEmptyParams = {};
+const ParamInit kInvalidName = {{"foo1", "bar1"}, {"", "bar2"}};
+const ParamInit kInvalidValue = {{"foo1", "bar1"}, {"foo2", ""}};
+const ParamInit kValidParams = {{"foo1", "bar1"}, {"foo2", "bar2"}};
+const ParamInit kValidParams2 = {{"foo3", "bar3"}, {"foo4", "bar4"}};
+const ParamInit kEncodeParams = {{"foo1", "bar1"}, {"foo2", "bar+"}};
+
+curl::Url::Params GetUrlParams(const ParamInit& params_init)
+{
+  curl::Url::Params params;
+  for (const auto& kvp : params_init) params.emplace(kvp);
+  return params;
+}
 
 const char* postman_echo_get_base = "https://postman-echo.com/get";
 
 struct UrlInitParams
 {
   const char* base;
-  const std::initializer_list<curl::Url::Param>* params;
+  const ParamInit* params;
   bool valid;
   const char* encoded_url;
 };
@@ -33,52 +42,63 @@ struct UrlInitParams
 class Url : public testing::TestWithParam<UrlInitParams>
 {
  protected:
-  Url()
-  {
-    const auto& param = GetParam();
-    url_ = param.params == nullptr
-               ? new curl::Url(param.base)
-               : new curl::Url(GetParam().base, GetParam().params->begin(), GetParam().params->end());
-  }
-
   ~Url() override { delete url_; }
 
-  curl::Url* url_;
+  void Construct()
+  {
+    url_ = GetParam().params ? new curl::Url(GetParam().base, GetUrlParams(*GetParam().params))
+                             : new curl::Url(GetParam().base);
+  }
+
+  curl::Url* url_{nullptr};
 };
 
-TEST_P(Url, CorrectValidity) { EXPECT_EQ(url_->Validity().Success(), GetParam().valid); }
+TEST_P(Url, CorrectValidity)
+{
+  if (GetParam().valid)
+    EXPECT_NO_THROW(Construct());
+  else
+    EXPECT_THROW(Construct(), curl::InvalidUrlError);
+}
 
-TEST_P(Url, Encoding) { EXPECT_EQ(url_->GetAsString(), GetParam().valid ? GetParam().encoded_url : ""); }
+TEST_P(Url, Encoding)
+{
+  if (GetParam().valid)
+  {
+    EXPECT_NO_THROW({
+      Construct();
+      EXPECT_EQ(std::string(*url_), GetParam().encoded_url);
+    });
+  }
+}
 
-INSTANTIATE_TEST_CASE_P(Correctness,
-                        Url,
-                        testing::Values(UrlInitParams{"", nullptr, false},
-                                        UrlInitParams{"", &kEmptyParams, false},
-                                        UrlInitParams{"", &kValidParams, false},
-                                        UrlInitParams{"base", &kInvalidName, false},
-                                        UrlInitParams{"base", &kInvalidValue, false},
-                                        UrlInitParams{"base", nullptr, true, "base"},
-                                        UrlInitParams{"base", &kEmptyParams, true, "base"},
-                                        UrlInitParams{"base", &kValidParams, true, "base?foo1=bar1&foo2=bar2"},
-                                        UrlInitParams{"base", &kEncodeParams, true, "base?foo1=bar1&foo2=bar%2B"}));
+INSTANTIATE_TEST_SUITE_P(Correctness,
+                         Url,
+                         testing::Values(UrlInitParams{"", nullptr, false},
+                                         UrlInitParams{"", &kEmptyParams, false},
+                                         UrlInitParams{"", &kValidParams, false},
+                                         UrlInitParams{"base", &kInvalidName, false},
+                                         UrlInitParams{"base", &kInvalidValue, false},
+                                         UrlInitParams{"base", nullptr, true, "base"},
+                                         UrlInitParams{"base", &kEmptyParams, true, "base"},
+                                         UrlInitParams{"base", &kValidParams, true, "base?foo1=bar1&foo2=bar2"},
+                                         UrlInitParams{"base", &kEncodeParams, true, "base?foo1=bar1&foo2=bar%2B"}));
 
 TEST(Curl, Single)
 {
-  curl::Url url(postman_echo_get_base, kValidParams.begin(), kValidParams.end());
+  curl::Url url(postman_echo_get_base, GetUrlParams(kValidParams));
   curl::Json expected_response;
   expected_response["foo1"] = "bar1";
   expected_response["foo2"] = "bar2";
 
   const auto data = curl::Get(url);
-
-  ASSERT_TRUE(data.second.Success());
-  EXPECT_EQ(data.first["args"].dump(4), expected_response.dump(4));
+  EXPECT_EQ(data["args"].dump(4), expected_response.dump(4));
 }
 
 TEST(Curl, Double)
 {
-  curl::Url url(postman_echo_get_base, kValidParams.begin(), kValidParams.end());
-  curl::Url url2(postman_echo_get_base, kValidParams2.begin(), kValidParams2.end());
+  curl::Url url(postman_echo_get_base, GetUrlParams(kValidParams));
+  curl::Url url2(postman_echo_get_base, GetUrlParams(kValidParams2));
 
   const auto urls = {url, url2};
 
@@ -91,12 +111,11 @@ TEST(Curl, Double)
 
   const auto data = curl::Get(urls.begin(), urls.end());
 
-  ASSERT_TRUE(data.second.Success());
-  ASSERT_TRUE(data.first.find(url) != data.first.end());
-  ASSERT_TRUE(data.first.find(url2) != data.first.end());
+  ASSERT_TRUE(data.find(url) != data.end());
+  ASSERT_TRUE(data.find(url2) != data.end());
 
-  const auto json1 = data.first.find(url)->second.first;
-  const auto json2 = data.first.find(url2)->second.first;
+  const auto json1 = data.find(url)->second;
+  const auto json2 = data.find(url2)->second;
 
   EXPECT_EQ(json1["args"].dump(4), expected_response_first.dump(4));
   EXPECT_EQ(json2["args"].dump(4), expected_response_second.dump(4));
@@ -106,13 +125,13 @@ TEST(Curl, GarbageUrl)
 {
   curl::Url garbage("garbage_url");
   const auto data = curl::Get(garbage);
-  EXPECT_TRUE(data.second.Failure());
+  EXPECT_TRUE(data.is_null());
 }
 
 TEST(Curl, Multithread)
 {
-  curl::Url url(postman_echo_get_base, kValidParams.begin(), kValidParams.end());
-  curl::Url url2(postman_echo_get_base, kValidParams2.begin(), kValidParams2.end());
+  curl::Url url(postman_echo_get_base, GetUrlParams(kValidParams));
+  curl::Url url2(postman_echo_get_base, GetUrlParams(kValidParams2));
 
   const auto urls = {url, url2};
 
@@ -123,7 +142,7 @@ TEST(Curl, Multithread)
   expected_response_second["foo3"] = "bar3";
   expected_response_second["foo4"] = "bar4";
 
-  curl::Json responses[6];
+  curl::Json responses[6]{};
   const auto thread_func = [&urls, &responses](int i) {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));  // Try to induce pileup
     auto map = curl::Get(urls);
@@ -131,15 +150,15 @@ TEST(Curl, Multithread)
     const auto& first = *begin;
     ++begin;
     const auto& second = *begin;
-    auto data1 = map.first[first];
-    auto data2 = map.first[second];
-    if (data1.second.Success())
+    auto data1 = map[first];
+    auto data2 = map[second];
+    if (!data1.is_null())
     {
-      responses[i * 2] = data1.first["args"];
+      responses[i * 2] = data1["args"];
     }
-    if (data2.second.Success())
+    if (!data2.is_null())
     {
-      responses[i * 2 + 1] = data2.first["args"];
+      responses[i * 2 + 1] = data2["args"];
     }
   };
 

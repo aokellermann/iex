@@ -8,13 +8,15 @@
 
 #include <chrono>
 #include <nlohmann/json.hpp>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
 
-#include "common.h"
-#include "json_serializer.h"
+#include "iex/detail/common.h"
+#include "iex/detail/json_serializer.h"
+#include "iex/detail/utils.h"
 
 /**
  * Contains all declarations necessary for performing a HTTP GET by a client.
@@ -23,127 +25,129 @@ namespace iex::curl
 {
 // region Url
 
+/// Thrown when an invalid Url or Param is being constructed.
+struct InvalidUrlError : public ErrorCode
+{
+  enum ErrorID
+  {
+    EMPTY_URL,
+    EMPTY_PARAM_KEY,
+    EMPTY_PARAM_VALUE,
+    EMPTY_PARAM_LIST_VALUE,
+  };
+
+  explicit InvalidUrlError(ErrorID error_id);
+
+  template <typename T>
+  static auto Validator(ErrorID error_id)
+  {
+    static const auto kFunc = [error_id](const T& t) { return t.empty() ? throw InvalidUrlError(error_id) : t; };
+    return kFunc;
+  }
+
+  ErrorID id;
+};
+
 /**
  * Represents a Url that can be the subject of an HTTP GET.
  */
 class Url
 {
  public:
+  using ValueType = std::string;
+
   /**
-   * Represents a named Url parameter.
+   * Hasher struct to use for Urls.
    */
-  struct Param
+  struct UrlHasher
   {
-    using Name = std::string;
-    using Value = std::string;
-
-    struct Hasher
-    {
-      std::size_t operator()(const Param& param) const { return std::hash<std::string>()(param.name); }
-    };
-
-    template <typename InputIt>
-    Param(Name param_name, InputIt comma_separated_params_begin, InputIt comma_separated_params_end)
-        : name(std::move(param_name))
-    {
-      for (auto iterator = comma_separated_params_begin; iterator != comma_separated_params_end; ++iterator)
-      {
-        value += *iterator + ',';
-      }
-      if (comma_separated_params_begin != comma_separated_params_end)
-      {
-        value.pop_back();
-      }
-    }
-
-    Param(Name param_name, std::initializer_list<Value> values)
-        : Param(std::move(param_name), values.begin(), values.end())
-    {
-    }
-
-    Param(Name param_name, Value param_value) : name(std::move(param_name)), value(std::move(param_value)) {}
-
-    bool operator==(const Param& other) const { return name == other.name && value == other.value; }
-
-    Name name;
-    Value value;
+    std::size_t operator()(const Url& url) const noexcept { return std::hash<ValueType>()(ValueType(url)); }
   };
 
-  using Params = std::unordered_set<Param, Param::Hasher>;
+  /**
+   * Represents a named Url parameter, such as ?foo=bar or &foo=bar1,bar2.
+   */
+  class Param : public KVP<std::string>
+  {
+   public:
+    using KeyType = KVP::KeyType;
+    using ValueType = KVP::ValueType;
 
+    /// An empty param is always invalid.
+    Param() = delete;
+
+    explicit Param(const KVP<ValueType>& kvp) : Param(kvp.key, kvp.value) {}
+
+    /// Constructs a Param with the given key and value. Throws if empty key or value.
+    Param(const KeyType& k, const ValueType& v)
+        : KVP(InvalidUrlError::Validator<KeyType>(InvalidUrlError::EMPTY_PARAM_KEY)(k),
+              Escape(InvalidUrlError::Validator<ValueType>(InvalidUrlError::EMPTY_PARAM_VALUE)(v)))
+    {
+    }
+
+    /// Constructs a param with the given key and values, which are comma delimited and escaped.
+    template <typename InputIt>
+    Param(const KeyType& k, InputIt v_begin, InputIt v_end)
+        : KVP(InvalidUrlError::Validator<KeyType>(InvalidUrlError::EMPTY_PARAM_KEY)(k),
+              utils::Join(v_begin, v_end, ',', [](const auto& v) {
+                return Escape(InvalidUrlError::Validator<ValueType>(InvalidUrlError::EMPTY_PARAM_LIST_VALUE)(v));
+              }))
+    {
+    }
+
+    /// Constructs a param with the given key and values, which are comma delimited and escaped.
+    Param(const KeyType& k, std::initializer_list<ValueType> vs) : Param(k, vs.begin(), vs.end()) {}
+
+    explicit operator std::string() const { return key + '=' + value; }
+
+   private:
+    static Param::ValueType Escape(const Param::ValueType& v);
+  };
+
+  /// A unique (by key) set of params.
+  using Params = std::set<Param, Param::KeyCompare>;
+
+  /// An empty Url is always invalid.
   Url() = delete;
 
-  explicit Url(std::string base_url) : impl_(std::move(base_url)), ec_(impl_.empty() ? "Empty URL" : "") {}
-
-  Url(const std::string& base_url, Params params) : Url(base_url, params.begin(), params.end()) {}
-
-  template <class InputIt>
-  Url(const std::string& base_url, InputIt params_begin, InputIt params_end) : Url(base_url)
+  /**
+   * Constructs a Url from the given string.
+   * @param url the Url as a string
+   * @throws InvalidUrlError if empty
+   */
+  explicit Url(const ValueType& base) : impl_(InvalidUrlError::Validator<ValueType>(InvalidUrlError::EMPTY_URL)(base))
   {
-    if (ec_.Failure())
-    {
-      impl_.clear();
-      return;
-    }
-
-    for (InputIt head = params_begin; head != params_end; ++head)
-    {
-      AppendParam(*head, head == params_begin);
-      if (ec_.Failure())
-      {
-        impl_.clear();
-        return;
-      }
-    }
   }
 
-  [[nodiscard]] const std::string& GetAsString() const noexcept { return impl_; }
+  template <class InputIt>
+  Url(const ValueType& base, InputIt params_begin, InputIt params_end) : Url(base)
+  {
+    if (params_begin != params_end)
+      impl_ += '?' + utils::Join(params_begin, params_end, '&', [](const auto& p) { return std::string(p); });
+  }
 
-  [[nodiscard]] const ErrorCode& Validity() const noexcept { return ec_; }
+  Url(const std::string& base, const Params& params) : Url(base, params.begin(), params.end()) {}
 
-  bool operator==(const Url& other) const { return impl_ == other.impl_; }
+  explicit operator const ValueType&() const { return impl_; }
+
+  bool operator==(const Url& other) const noexcept { return impl_ == other.impl_; }
 
  private:
-  static ValueWithErrorCode<std::string> UrlEncode(const std::string& plaintext_str);
-
-  void AppendParam(const Param& param, bool first);
-
-  std::string impl_;
-  ErrorCode ec_;
+  ValueType impl_;
 };
 
 /**
- * Hasher struct to use for Urls.
- *
- * This is useful for associative containers, such as UrlMap and UrlSet.
- */
-struct UrlHasher
-{
-  std::size_t operator()(const Url& s) const { return std::hash<std::string>()(s.GetAsString()); }
-};
-
-/**
- * Equality struct to use for Urls.
- *
- * This is useful for associative containers, such as UrlMap and UrlSet.
- */
-struct UrlEquality
-{
-  bool operator()(const Url& a, const Url& b) const noexcept { return a.GetAsString() == b.GetAsString(); }
-};
-
-/**
- * Unordered map of Url objects using custom hasher UrlHasher and custom equality UrlEquality.
+ * Unordered map of Url objects using custom hasher UrlHasher.
  */
 template <typename T>
-using UrlMap = std::unordered_map<Url, T, UrlHasher, UrlEquality>;
+using UrlMap = std::unordered_map<Url, T, Url::UrlHasher>;
 
 /**
- * Unordered set of Url objects using custom hasher UrlHasher and custom equality UrlEquality.
+ * Unordered set of Url objects using custom hasher UrlHasher.
  */
-using UrlSet = std::unordered_set<Url, UrlHasher, UrlEquality>;
+using UrlSet = std::unordered_set<Url, Url::UrlHasher>;
 
-// endregion
+// endregion Url
 
 // region Retry
 
@@ -191,24 +195,18 @@ struct RetryBehavior
  */
 ErrorCode Init();
 
-using json::Json;
-
-/**
- * Represents an HTTP GET response: Json object containing response data, and ErrorCode denoting success or failure.
- */
-using GetResponse = ValueWithErrorCode<Json>;
+using Json = json::Json;
 
 /**
  * An unordered map of Url to their corresponding GetResponse objects. This is what is returned when querying multiple
  * Urls at the same time.
  */
-using GetMap = UrlMap<GetResponse>;
+using UrlJsonMap = UrlMap<Json>;
 
 /**
  * See templated Get function.
  */
-ValueWithErrorCode<GetMap> Get(const UrlSet& url_set, int max_connections = 0,
-                               const RetryBehavior& retry_behavior = {});
+UrlJsonMap Get(const UrlSet& url_set, int max_connections = 0, const RetryBehavior& retry_behavior = {});
 
 /**
  * Performs HTTP GET on target Urls, with max_connection maximum parallel HTTP connections.
@@ -220,8 +218,8 @@ ValueWithErrorCode<GetMap> Get(const UrlSet& url_set, int max_connections = 0,
  * @return map of Url to corresponding returned data (with error code)
  */
 template <class InputIt>
-inline ValueWithErrorCode<GetMap> Get(InputIt urls_begin, InputIt urls_end, int max_connections = 0,
-                                      const RetryBehavior& retry_behavior = {})
+inline UrlJsonMap Get(InputIt urls_begin, InputIt urls_end, int max_connections = 0,
+                      const RetryBehavior& retry_behavior = {})
 {
   const UrlSet url_set(urls_begin, urls_end);
   return Get(url_set, max_connections, retry_behavior);
@@ -230,13 +228,12 @@ inline ValueWithErrorCode<GetMap> Get(InputIt urls_begin, InputIt urls_end, int 
 /**
  * See templated Get function.
  */
-inline GetResponse Get(const Url& url, int max_connections = 0, const RetryBehavior& retry_behavior = {})
+inline Json Get(const Url& url, int max_connections = 0, const RetryBehavior& retry_behavior = {})
 {
   const auto url_list = {url};
   auto data_map = Get(url_list.begin(), url_list.end(), max_connections, retry_behavior);
-  const auto iter = data_map.first.find(url);
-  const auto& json = iter != data_map.first.end() ? iter->second.first : Json();
-  return {json, data_map.second};
+  const auto iter = data_map.find(url);
+  return iter != data_map.end() ? iter->second : Json();
 }
 
 // endregion Interface
