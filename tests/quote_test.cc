@@ -135,3 +135,11 @@ TEST(Quote, AllFields)
   EXPECT_TRUE(quote.Get<MemberType::LAST_TRADE_TIME>().has_value());
   EXPECT_TRUE(quote.Get<MemberType::IS_US_MARKET_OPEN>().has_value());
 }
+
+TEST(Quote, DisplayPercentOption)
+{
+  iex::Endpoint::OptionsObject options = kOptions;
+  options.options = {iex::Quote::DisplayPercentOption()};
+  const auto quote = iex::Get<iex::Endpoint::Type::QUOTE>(iex::Symbol("tsla"), kOptions);
+  EXPECT_NE(quote, nullptr);
+}

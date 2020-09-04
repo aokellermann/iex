@@ -197,10 +197,14 @@ class Endpoint : public json::JsonBidirectionalSerializable
   /**
    * Used to generate Url Params.
    */
-  struct OptionBase
+  class OptionBase
   {
-    [[nodiscard]] virtual std::string KeyString() const = 0;
-    [[nodiscard]] virtual std::string ValueString() const = 0;
+   public:
+    [[nodiscard]] virtual std::string KeyString() const { return std::string(); };
+    [[nodiscard]] virtual std::string ValueString() const { return std::string(); };
+
+   protected:
+    OptionBase() = default;
   };
 
   template <typename T>
