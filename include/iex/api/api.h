@@ -208,7 +208,7 @@ class Endpoint : public json::JsonBidirectionalSerializable
   class Option : public OptionBase
   {
    public:
-    explicit Option(const KVP<T>& kvp) : OptionBase(kvp.key, ValueString(kvp.value)){}
+    explicit Option(const KVP<T>& kvp) : OptionBase(kvp.key, ValueString(kvp.value)) {}
     ~Option() override = default;
 
    private:
