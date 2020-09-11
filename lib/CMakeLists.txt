@@ -44,7 +44,7 @@ install(TARGETS ${IEX_LIBRARY}
 
 set(project_config_in "${CMAKE_SOURCE_DIR}/cmake/${PROJECT_NAME}Config.cmake.in")
 set(project_config_out "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake")
-set(config_targets_file "${PROJECT_NAME}ConfigTargets.cmake")
+set(config_targets_file "${PROJECT_NAME}Targets.cmake")
 set(version_config_file "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake")
 set(export_dest_dir "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
 
