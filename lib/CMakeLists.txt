@@ -36,56 +36,29 @@ target_include_directories(${IEX_LIBRARY} PUBLIC
 # Install shared object
 set(iex_targets_file "${PROJECT_NAME}Targets")
 install(TARGETS ${IEX_LIBRARY}
-        EXPORT ${iex_targets_file}
-        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
-        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT runtime
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT development
-        )
+        EXPORT ${IEX_LIBRARY}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
 
-# Export to the build tree
-set(iex_cmake_dir "${CMAKE_SOURCE_DIR}/cmake")
-set(iex_export_file "${iex_targets_file}.cmake")
-set(cmake_install_dir "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
+set(project_config_in "${CMAKE_SOURCE_DIR}/cmake/${PROJECT_NAME}Config.cmake.in")
+set(project_config_out "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake")
+set(config_targets_file "${PROJECT_NAME}ConfigTargets.cmake")
+set(version_config_file "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake")
+set(export_dest_dir "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
 
-export(TARGETS ${IEX_LIBRARY}
+install(EXPORT ${IEX_LIBRARY}
+        DESTINATION ${export_dest_dir}
         NAMESPACE ${PROJECT_NAME}::
-        APPEND FILE ${iex_export_file}
-        )
-install(EXPORT ${iex_targets_file}
-        NAMESPACE ${PROJECT_NAME}::
-        DESTINATION ${cmake_install_dir}
+        FILE ${config_targets_file}
         )
 
-# Package config
 include(CMakePackageConfigHelpers)
+configure_file("${project_config_in}" "${project_config_out}" @ONLY)
 
-# Package version
-set(iex_config_version_file ${PROJECT_NAME}ConfigVersion.cmake)
-write_basic_package_version_file(${iex_config_version_file}
-        VERSION ${PROJECT_VERSION}
-        COMPATIBILITY SameMajorVersion
-        )
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${iex_config_version_file}
-        DESTINATION ${cmake_install_dir}
-        )
-
-# Build tree
-set(iex_config_file ${iex_cmake_dir}/${PROJECT_NAME}Config.cmake)
-configure_package_config_file(
-        ${iex_config_file}.in
-        ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
-        INSTALL_DESTINATION ${cmake_install_dir}
-        PATH_VARS iex_export_file
-        NO_CHECK_REQUIRED_COMPONENTS_MACRO
-        INSTALL_PREFIX ${CMAKE_CURRENT_BINARY_DIR}
-)
-
-# Install tree
-set(iex_targets_file ${CMAKE_INSTALL_PREFIX}/${cmake_install_dir}/${iex_export_file})
-configure_package_config_file(
-        ${iex_config_file}.in
-        ${iex_export_file}
-        INSTALL_DESTINATION ${cmake_install_dir}
-        PATH_VARS iex_targets_file
-        NO_CHECK_REQUIRED_COMPONENTS_MACRO # iex does not provide components
-)
+write_basic_package_version_file("${version_config_file}" COMPATIBILITY SameMajorVersion)
+install(FILES
+        "${project_config_out}"
+        "${version_config_file}"
+        DESTINATION "${export_dest_dir}")
