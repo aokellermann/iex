@@ -40,7 +40,7 @@ install(TARGETS ${IEX_LIBRARY}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-)
+        )
 
 set(project_config_in "${CMAKE_SOURCE_DIR}/cmake/${PROJECT_NAME}Config.cmake.in")
 set(project_config_out "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake")
