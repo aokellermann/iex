@@ -310,7 +310,7 @@ class Quote : public StockEndpoint
    */
   struct DisplayPercentOption : Option<bool>
   {
-    DisplayPercentOption() : Option<bool>("displayPercent", true) {}
+    DisplayPercentOption() : Option<bool>(KVP<bool>{"displayPercent", true}) {}
   };
 };
 
