@@ -197,36 +197,30 @@ class Endpoint : public json::JsonBidirectionalSerializable
   /**
    * Used to generate Url Params.
    */
-  class OptionBase
+  struct OptionBase : KVP<std::string>
   {
    public:
-    [[nodiscard]] virtual std::string KeyString() const { return std::string(); };
-    [[nodiscard]] virtual std::string ValueString() const { return std::string(); };
-
-   protected:
-    OptionBase() = default;
+    using KVP::KVP;
+    ~OptionBase() override = default;
   };
 
   template <typename T>
-  class Option : private KVP<T>, public OptionBase
+  class Option : public OptionBase
   {
    public:
-    using OptionType = KVP<T>;
-    using OptionType::KVP;
-    using OptionType::operator=;
+    explicit Option(const KVP<T>& kvp) : OptionBase(kvp.key, ValueString(kvp.value)) {}
     ~Option() override = default;
 
-    [[nodiscard]] std::string KeyString() const override { return this->key; }
-
-    [[nodiscard]] std::string ValueString() const override
+   private:
+    [[nodiscard]] std::string ValueString(const T& value) const
     {
       std::stringstream sstr;
-      sstr << std::boolalpha << this->value;  // Use std::boolalpha to print bools as true/false rather than 1/0
-      return this->key + sstr.str();
+      sstr << std::boolalpha << value;  // Use std::boolalpha to print bools as true/false rather than 1/0
+      return sstr.str();
     }
   };
 
-  using Options = std::vector<OptionBase>;
+  using Options = std::vector<KVP<std::string>>;
 
   struct OptionsObject
   {

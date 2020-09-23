@@ -140,6 +140,6 @@ TEST(Quote, DisplayPercentOption)
 {
   iex::Endpoint::OptionsObject options = kOptions;
   options.options = {iex::Quote::DisplayPercentOption()};
-  const auto quote = iex::Get<iex::Endpoint::Type::QUOTE>(iex::Symbol("tsla"), kOptions);
+  const auto quote = iex::Get<iex::Endpoint::Type::QUOTE>(iex::Symbol("tsla"), options);
   EXPECT_NE(quote, nullptr);
 }

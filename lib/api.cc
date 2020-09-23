@@ -56,7 +56,7 @@ void AppendParams(Params& params, const Endpoint::Options& options)
 {
   for (const auto& opt : options)
   {
-    params.insert(Param(opt.KeyString(), opt.ValueString()));
+    params.insert(Param(opt.key, opt.value));
   }
 }
 

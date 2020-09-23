@@ -45,7 +45,7 @@ Simply include the header `iex/iex.h`:
 
 You can easily link using CMake:
 ```cmake
-target_link_libraries(target_name iex::iex)
+target_link_libraries(example iex::iex)
 ```
 
 #### Initialization
@@ -54,91 +54,7 @@ You must call `iex::Init` before any other threads have been created before usin
 
 Here is an example of using environment variables to initialize `iex`:
 
-```c++
-iex::Keys keys;
-keys.public_key = getenv("IEX_PUBLIC_KEY");
-keys.secret_key = getenv("IEX_SECRET_KEY");
-keys.public_sandbox_key = getenv("IEX_SANDBOX_PUBLIC_KEY");
-keys.secret_sandbox_key = getenv("IEX_SANDBOX_SECRET_KEY");
-const auto ec = iex::Init(std::move(keys));
-if (ec.Failure())
-{
-  std::cerr << ec << std::endl;
-  exit(EXIT_FAILURE);
-}
-```
-
-#### Fetching Data
-
-There are several overloads of `iex::Get` that you can use to fetch API data.
-
-##### Single Endpoint/Symbol
-
-The following is an example call to fetch $TSLA realtime quote, and printing out the latest price:
-```c++
-const auto quote = iex::Get<iex::Endpoint::Type::QUOTE>(iex::Symbol("tsla");
-if (response.second.Success())
-{
-    auto price = quote.first->Get<iex::Quote::MemberType::LATEST_PRICE>();
-    if (price.has_value())
-      std::cout << "TSLA realtime price: $" << price.value() << std::endl;
-}
-```
-
-##### Single Endpoint Multiple Symbol
-
-The following is an example call to fetch $TSLA, $AMD, and $MSFT realtime quotes, and printing out the latest prices:
-```c++
-auto response = iex::Get<iex::Endpoint::Type::QUOTE>(
-      iex::SymbolSet{iex::Symbol("tsla"), iex::Symbol("amd"), iex::Symbol("msft")});
-if (response.second.Success())
-{
-  for (const auto& [symbol, quote] : response.first)
-  {
-    if (quote)
-    {
-      auto price = quote->Get<iex::Quote::MemberType::LATEST_PRICE>();
-      if (price.has_value())
-        std::cout << symbol.Get() << " realtime price: $" << price.value() << std::endl;
-    }
-  }
-}
-```
-
-##### Multiple Endpoint Multiple Symbol
-
-The following is an example call to fetch $TSLA, $AMD, and $MSFT realtime quotes and company information, and printing out the latest prices and company names:
-```c++
-auto response = iex::Get<iex::Endpoint::Type::QUOTE, iex::Endpoint::Type::COMPANY>(
-      iex::SymbolSet{iex::Symbol("tsla"), iex::Symbol("amd"), iex::Symbol("msft")});if (response.second.Success())
-{
-  for (const auto& [symbol, endpoints] : response.first)
-  {
-    auto& [quote, company] = endpoints;
-    if (quote && company)
-    {
-      auto price = quote->Get<iex::Quote::MemberType::LATEST_PRICE>();
-      auto name = company->Get<iex::Company::MemberType::COMPANY_NAME>();
-      if (price.has_value() && name.has_value())
-        std::cout << name.value() << " realtime price: $" << price.value() << std::endl;
-    }
-  }
-}
-```
-
-Notice in the `iex::Get` calls, there is an optional parameter:
-* A collection of endpoint-specific `iex::Option`s
-* API Version (defaults to `STABLE`)
-* DataType (defaults to `AUTHENTIC`)
-    * `AUTHENTIC`: genuine data that counts towards your used credits
-    * `SANDBOX`: ingenuine data that doesn't count towards your used credits (usually used for testing)
-    
-The above examples all use default options. Below is a call to the Beta version of IEX's Sandbox API, with the Quote DisplayPercentOption:
-```c++
-iex::Endpoint::OptionsObject options{
-      {iex::Quote::DisplayPercentOption()}, iex::Version::BETA, iex::DataType::SANDBOX};
-  auto response = iex::Get<iex::Endpoint::Type::QUOTE>(iex::Symbol("tsla"), options);
-```
+See the [examples](examples) directory for a fully working annotated example usage of `iex`, along with an accompanying example `CMakeLists.txt`.
 
 ### Contributing
 
