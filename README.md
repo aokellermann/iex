@@ -48,12 +48,6 @@ You can easily link using CMake:
 target_link_libraries(example iex::iex)
 ```
 
-#### Initialization
-
-You must call `iex::Init` before any other threads have been created before using any `iex::Get` functions. This lack of thread-safety is not because of this library (see [here](https://curl.haxx.se/libcurl/c/curl_global_init.html)).
-
-Here is an example of using environment variables to initialize `iex`:
-
 See the [examples](examples) directory for a fully working annotated example usage of `iex`, along with an accompanying example `CMakeLists.txt`.
 
 ### Contributing
