@@ -1,24 +1,21 @@
 # iex
 
 ### Description
-iex is a WIP C++17 library for querying [IEX Cloud](https://iexcloud.io/), a financial data REST API.
+
+`iex` is a WIP C++17 library for querying [IEX Cloud](https://iexcloud.io/), a financial data REST API.
 
 ### Install
+
 Please note that this library is only designed to be built on Linux, and has only been tested with GCC 10.1 and Clang 10.0.
 
-#### Arch Linux Package
+#### Arch Linux
 
-Arch Linux users may install from the AUR:
-```bash
-git clone https://aur.archlinux.org/iex-git.git && cd iex-git
-makepkg -si
-```
-Or by using an AUR helper:
+An [AUR package](https://aur.archlinux.org/packages/iex-git/) is available:
 ```bash
 yay -S iex-git
 ```
 
-#### Manual Build
+#### Other Linux
 
 ##### Dependencies
 Building from source requires the installation of all necessary dependencies:
@@ -39,32 +36,34 @@ Substitute `/usr` with your desired install location.
 
 ### Usage
 
-Simply include the public header `iex/iex.h`.
+#### Build
 
-If you are building with CMake, you can link using `iex::iex`:
+Simply include the header `iex/iex.h`:
+```c++
+#include <iex/iex.h>
+```
+
+You can easily link using CMake:
 ```cmake
 target_link_libraries(example iex::iex)
 ```
 
+#### Code
+
 See the [examples](examples) directory for a fully working annotated example usage of `iex`, along with an accompanying example `CMakeLists.txt`.
+
+Currently this library supports the following endpoints:
+* System Status
+* Quote
+* Company
+* Symbols
 
 ### Contributing
 
 See [contributing guidelines](.github/CONTRIBUTING.md).
 
-### Projects
+### License
 
-##### API Goals
-* Support calls to all [stock price](https://iexcloud.io/docs/api/#stock-prices) endpoints.
-* Support calls to all [stock fundamental](https://iexcloud.io/docs/api/#stock-fundamentals) endpoints.
-* Support calls to some [reference](https://iexcloud.io/docs/api/#reference-data) endpoints:
-  * Symbols
-  * OTC Symbols
-  * Mutual Fund Symbols
-  * Cryptocurrency Symbols
-* Provide data caching:
-  * Smart querying (will not make API call if relevant data is already cached)
-  * Cache management
-  * Cache-only querying
+[MIT](LICENSE)
 
 [Data provided by IEX Cloud](https://iexcloud.io)
