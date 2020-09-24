@@ -11,11 +11,6 @@ assignees: ''
 
 ### Possible Solution
 * Overview of what would have to be done to fulfill this request.
-##### Deliverables
-* List possible files that would be added or changed to fulfill this request. Ex:
-* `.github/ISSUE_TEMPLATE/feature_request.md`: Comprehensive feature request template.
-  * Section listing deliverables.
-  * Section for additional context.
 
 ### Additional Context
 * Add any comments here.
