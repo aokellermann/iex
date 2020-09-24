@@ -48,7 +48,15 @@ You can easily link using CMake:
 target_link_libraries(example iex::iex)
 ```
 
+#### Code
+
 See the [examples](examples) directory for a fully working annotated example usage of `iex`, along with an accompanying example `CMakeLists.txt`.
+
+Currently this library supports the following endpoints:
+* System Status
+* Quote
+* Company
+* Symbols
 
 ### Contributing
 
@@ -56,6 +64,6 @@ See [contributing guidelines](.github/CONTRIBUTING.md).
 
 ### License
 
-Copyright 2020 Antony Kellermann
+[MIT](LICENSE)
 
 [Data provided by IEX Cloud](https://iexcloud.io)
