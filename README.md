@@ -43,8 +43,10 @@ Simply include the public header `iex/iex.h`.
 
 If you are building with CMake, you can link using `iex::iex`:
 ```cmake
-target_link_libraries(target_name iex::iex)
+target_link_libraries(example iex::iex)
 ```
+
+See the [examples](examples) directory for a fully working annotated example usage of `iex`, along with an accompanying example `CMakeLists.txt`.
 
 ### Contributing
 
