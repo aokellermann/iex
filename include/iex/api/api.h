@@ -56,7 +56,7 @@ struct Keys
  * @see IexManualTimeoutStress in api_test.cc
  * @see https://iexcloud.io/docs/api/#request-limits
  */
-constexpr const std::chrono::milliseconds kIexRequestLimitTimeout(40);
+constexpr const curl::TimeoutDuration kDefaultContinuousIexRequestLimitTimeout(40);
 
 /**
  * @see https://iexcloud.io/docs/api/#error-codes
@@ -563,6 +563,18 @@ auto Get(const SymbolSet& symbols, const Endpoint::OptionsObject& options)
  * function properly and the program should exit.
  */
 ErrorCode Init(Keys keys);
+
+/**
+ * Sets the new RetryBehavior for all API calls.
+ * @param new_retry_behavior RetryBehavior
+ */
+void SetRetryBehavior(curl::RetryBehavior new_retry_behavior);
+
+/**
+ * Gets a reference to the current RetryBehavior. The reference is invalidated if you call SetRetryBehavior().
+ * @return const reference to current RetryBehavior
+ */
+const curl::RetryBehavior& GetRetryBehavior();
 
 /**
  * Fetches from IEX Cloud the given Endpoint::Types for the given symbol.
