@@ -15,6 +15,7 @@ add_executable(unit_test
         company_test.cc
         api_test.cc
         unit_test.cc
+        retry_behavior_test.cc
         )
 
 target_link_libraries(unit_test ${IEX_LIBRARY} ${GTEST_LIBRARIES})

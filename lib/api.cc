@@ -23,7 +23,7 @@ namespace
 /**
  * Arbitrary number of retries.
  */
-const curl::RetryBehavior kDefaultRetryBehavior{3, {kIexHttpTooManyRequests}, true, kIexRequestLimitTimeout};
+curl::RetryBehavior retry_behavior{3, {kIexHttpTooManyRequests}, true, kDefaultContinuousIexRequestLimitTimeout};
 
 /**
  * Used to ensure only one request at a time.
@@ -134,8 +134,8 @@ json::Json PerformCurl(const curl::Url& url)
   std::lock_guard lock(api_call_mutex);
   auto now = std::chrono::high_resolution_clock::now();
   const auto time_since_last_call = now - last_call_ts;
-  std::this_thread::sleep_for(kIexRequestLimitTimeout - time_since_last_call);
-  auto response = curl::Get(url, 0, kDefaultRetryBehavior);
+  std::this_thread::sleep_for(retry_behavior.timeout - time_since_last_call);
+  auto response = curl::Get(url, 0, retry_behavior);
   last_call_ts = std::move(now);
   return response;
 }
@@ -148,6 +148,18 @@ ErrorCode Init(Keys keys)
 {
   api_keys = std::move(keys);
   return InnerInit();
+}
+
+void SetRetryBehavior(curl::RetryBehavior new_retry_behavior)
+{
+  std::lock_guard lock(api_call_mutex);
+  retry_behavior = std::move(new_retry_behavior);
+}
+
+const curl::RetryBehavior& GetRetryBehavior()
+{
+  std::lock_guard lock(api_call_mutex);
+  return retry_behavior;
 }
 
 // endregion Interface

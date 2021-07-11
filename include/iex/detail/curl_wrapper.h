@@ -157,6 +157,11 @@ using UrlSet = std::unordered_set<Url, Url::UrlHasher>;
 using HttpResponseCode = int64_t;
 
 /**
+ * Time to wait in ms.
+ */
+using TimeoutDuration = std::chrono::milliseconds;
+
+/**
  * This struct determines if HTTP requests are retried on error.
  */
 struct RetryBehavior
@@ -179,7 +184,7 @@ struct RetryBehavior
   /**
    * Sleep period before retrying request.
    */
-  std::chrono::milliseconds timeout = decltype(timeout)::zero();
+  TimeoutDuration timeout = decltype(timeout)::zero();
 };
 
 // endregion Retry
